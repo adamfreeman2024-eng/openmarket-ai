@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { OrderPaySchema } from "@/lib/types";
 import { db, audit, ensureSeedCatalog, utcDay } from "@/lib/store";
 import { json, options } from "@/lib/http";
-import { verifyPayment, fulfillInline } from "@/lib/settlement";
+import { verifyPayment, fulfillInline, createEscrowForOrder } from "@/lib/settlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +67,45 @@ export async function POST(
   const offer = db.getOffer(order.offerId);
   let result: unknown;
   try {
+    // Escrow path: payment locks funds until proof/release
+    if (offer?.escrow) {
+      const escrow = createEscrowForOrder({
+        orderId: order.id,
+        amount: order.totalAmount,
+        asset: order.priceAsset,
+        buyerWallet: order.buyerWallet,
+        sellerAgentId: order.sellerAgentId,
+      });
+      order.status = "paid";
+      order.result = {
+        escrowId: escrow.id,
+        status: "locked",
+        next: `POST /api/v1/escrow/${escrow.id}/release { \"proof\": \"...\" }`,
+      };
+      order.completedAt = undefined;
+      db.putOrder(order);
+      audit("escrow.locked", { orderId: order.id, escrowId: escrow.id });
+      if (order.buyerAgentId) {
+        const buyer = db.getAgent(order.buyerAgentId);
+        if (buyer) {
+          if (buyer.policy.spentDay !== utcDay()) {
+            buyer.policy.spentDay = utcDay();
+            buyer.policy.spentToday = 0;
+          }
+          buyer.policy.spentToday += order.totalAmount;
+          buyer.stats.purchases += 1;
+          db.putAgent(buyer);
+        }
+      }
+      return json({
+        ok: true,
+        order,
+        escrow,
+        settlementMode: v.mode,
+        note: "Payment accepted; escrow locked until release",
+      });
+    }
+
     if (offer?.fulfillmentType === "webhook" && offer.webhookUrl) {
       const wr = await fetch(offer.webhookUrl, {
         method: "POST",
