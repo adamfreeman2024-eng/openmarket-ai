@@ -261,8 +261,12 @@ export function createEscrowForOrder(opts: {
   asset: string;
   buyerWallet?: string;
   sellerAgentId: string;
+  /** seconds until auto-refund eligible (default 72h) */
+  lockSeconds?: number;
 }): EscrowRecord {
-  const now = new Date().toISOString();
+  const now = new Date();
+  const lockSeconds = opts.lockSeconds ?? Number(process.env.ESCROW_LOCK_SECONDS || 72 * 3600);
+  const expiresAt = new Date(now.getTime() + lockSeconds * 1000).toISOString();
   const e: EscrowRecord = {
     id: newId("esc"),
     orderId: opts.orderId,
@@ -271,11 +275,35 @@ export function createEscrowForOrder(opts: {
     asset: opts.asset,
     buyerWallet: opts.buyerWallet,
     sellerAgentId: opts.sellerAgentId,
-    createdAt: now,
-    updatedAt: now,
+    expiresAt,
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
   };
   db.putEscrow(e);
   return e;
+}
+
+/** Auto-refund locked escrows past expiresAt */
+export function expireEscrows(now = Date.now()): EscrowRecord[] {
+  const expired: EscrowRecord[] = [];
+  for (const e of db.listEscrows()) {
+    if (e.status !== "locked" || !e.expiresAt) continue;
+    if (new Date(e.expiresAt).getTime() > now) continue;
+    e.status = "refunded";
+    e.reason = "auto_timeout";
+    e.updatedAt = new Date().toISOString();
+    db.putEscrow(e);
+    const order = db.getOrder(e.orderId);
+    if (order) {
+      order.status = "failed";
+      order.error = "escrow_timeout";
+      order.result = { escrowId: e.id, refunded: true, reason: "auto_timeout" };
+      order.completedAt = new Date().toISOString();
+      db.putOrder(order);
+    }
+    expired.push(e);
+  }
+  return expired;
 }
 
 export function usdcMeta() {

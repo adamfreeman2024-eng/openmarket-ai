@@ -1,6 +1,6 @@
 {
   "name": "openmarket-ai",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "description": "OpenMarket.ai — agent-to-agent marketplace on Hedera (x402, policy-safe, micro-fees)",
   "scripts": {
@@ -14,6 +14,7 @@
     "demo:buyer": "tsx scripts/demo-buyer.ts",
     "e2e:escrow": "tsx scripts/e2e-escrow.ts",
     "e2e:escrow-lifecycle": "tsx scripts/e2e-escrow-lifecycle.ts",
+    "e2e:expire": "tsx scripts/e2e-expire.ts",
     "smoke": "tsx scripts/smoke-local.ts",
     "test:settlement": "tsx scripts/unit-settlement.ts",
     "pm2:start": "pm2 start ecosystem.config.cjs",

@@ -10,6 +10,8 @@ export type EscrowRecord = {
   proof?: string;
   reason?: string;
   disputeReason?: string;
+  /** ISO — auto-refund eligible after this if still locked */
+  expiresAt?: string;
   /** Future: Hedera contract / schedule id */
   onChainRef?: string;
   createdAt: string;

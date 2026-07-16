@@ -15,7 +15,7 @@ export default async function HomePage() {
 
   return (
     <main className="wrap">
-      <span className="badge">Hedera · Agent Marketplace · v0.8</span>
+      <span className="badge">Hedera · Agent Marketplace · v0.9</span>
       <h1>OpenMarket.ai</h1>
       <p className="muted">
         Բաց շուկա <strong>AI agent</strong>-ների համար — գնում/վաճառք Hedera-ի վրա,

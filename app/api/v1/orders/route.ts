@@ -11,11 +11,35 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/orders — list recent (demo) */
-export async function GET() {
+/**
+ * GET /api/v1/orders
+ * With X-Api-Key: only that agent's buys/sells.
+ * Without: last 50 (demo) — set ORDERS_PUBLIC=false to require auth.
+ */
+export async function GET(req: NextRequest) {
   ensureSeedCatalog();
-  const orders = db.listOrders().slice(-50).reverse();
-  return json({ ok: true, orders });
+  const key = getApiKey(req);
+  const agent = key ? db.getAgentByKey(key) : undefined;
+  let orders = db.listOrders().slice().reverse();
+
+  if (agent) {
+    orders = orders.filter(
+      (o) => o.buyerAgentId === agent.id || o.sellerAgentId === agent.id
+    );
+  } else if (process.env.ORDERS_PUBLIC === "false") {
+    return json({ ok: false, error: "X-Api-Key required" }, 401);
+  }
+
+  const limit = Math.min(
+    Number(req.nextUrl.searchParams.get("limit") || 50),
+    200
+  );
+  return json({
+    ok: true,
+    count: orders.length,
+    orders: orders.slice(0, limit),
+    scoped: Boolean(agent),
+  });
 }
 
 /** POST /api/v1/orders — create order → 402 Payment Required */
@@ -43,9 +67,8 @@ export async function POST(req: NextRequest) {
     quoteId: quote.id,
     offerId: quote.offerId,
     sellerAgentId: quote.agentId,
-    buyerAgentId: parsed.data.buyerAgentId || quote.buyerAgentId || buyer?.id,
-    buyerWallet:
-      parsed.data.buyerWallet || quote.buyerWallet || buyer?.walletAccountId,
+    buyerAgentId: buyer?.id || quote.buyerAgentId,
+    buyerWallet: buyer?.walletAccountId || quote.buyerWallet,
     totalAmount: quote.totalAmount,
     platformFee: quote.platformFee,
     priceAsset: quote.priceAsset,
@@ -53,30 +76,22 @@ export async function POST(req: NextRequest) {
     createdAt: new Date().toISOString(),
   };
   db.putOrder(order);
-  audit("order.create", { orderId: order.id });
+  audit("order.create", { orderId: order.id, quoteId: quote.id });
 
-  // HTTP 402 Payment Required — x402-inspired
   return json(
     {
       ok: false,
-      error: "Payment Required",
       code: "PAYMENT_REQUIRED",
       orderId: order.id,
       payment: {
-        amount: order.totalAmount,
-        asset: order.priceAsset,
+        amount: quote.totalAmount,
+        asset: quote.priceAsset,
         payTo: quote.payTo,
         memo: `openmarket:${quote.id}:${order.id}`,
-        network: "hedera-testnet",
       },
       next: {
-        method: "POST",
-        url: `${SITE_URL}/api/v1/orders/${order.id}/pay`,
-        body: {
-          transactionId: "<hedera-tx-id-after-transfer>",
-          devFakePay: true,
-        },
-        note: "devFakePay only when ALLOW_DEV_FAKE_SETTLEMENT=true",
+        pay: `${SITE_URL}/api/v1/orders/${order.id}/pay`,
+        body: { transactionId: "<hedera-tx-id>" },
       },
     },
     402
