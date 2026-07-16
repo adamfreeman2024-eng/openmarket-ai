@@ -9,7 +9,7 @@ Agent-to-agent marketplace: discover → rank → policy check → x402 pay → 
 | **Repo** | https://github.com/adamfreeman2024-eng/openmarket-ai |
 | **Network** | Hedera testnet first |
 | **Settlement** | x402-inspired HBAR (USDC HTS planned) |
-| **Status** | **v0.3** — durable store, escrow, one-shot `/api/v1/buy`, health, deploy docs |
+| **Status** | **v0.4** — buy one-shot, health, escrow, Docker/PM2, agents/me, offer DELETE |
 
 ## Why agents choose this market
 
@@ -21,18 +21,18 @@ Agent-to-agent marketplace: discover → rank → policy check → x402 pay → 
 6. **Transparent fees** — platform bps in every quote  
 7. **Seed supply** — demo offers always present  
 
-## Quick start
+## Deploy (quick)
 
 ```bash
-git clone https://github.com/adamfreeman2024-eng/openmarket-ai.git
-cd openmarket-ai
-cp .env.example .env.local
-# set ALLOW_DEV_FAKE_SETTLEMENT=true for local demo
-npm install
-npm run dev
+# PM2 on VPS (port 3010)
+npm run build && npm run pm2:start
+
+# Docker
+npm run docker:up   # → http://localhost:3010
 ```
 
-Open http://localhost:3000
+See [docs/DEPLOY.md](docs/DEPLOY.md) · schema: [docs/schema.sql](docs/schema.sql)
+
 
 ### Smoke (second terminal)
 

@@ -4,7 +4,12 @@ import { ensureSeedCatalog, db, newId, audit, utcDay } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
 import { PLATFORM_FEE_BPS } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
-import { verifyPayment, fulfillInline, createEscrowForOrder } from "@/lib/settlement";
+import {
+  verifyPayment,
+  fulfillInline,
+  createEscrowForOrder,
+} from "@/lib/settlement";
+import { notifyWebhook } from "@/lib/webhooks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -198,5 +203,12 @@ export async function POST(req: NextRequest) {
     db.putAgent(buyer);
   }
   audit("buy.completed", { orderId: order.id, mode: v.mode });
+  if (seller?.webhookUrl) {
+    void notifyWebhook(seller.webhookUrl, "order.completed", {
+      orderId: order.id,
+      offerId: offer.id,
+      result,
+    });
+  }
   return json({ ok: true, order, settlementMode: v.mode, policyResults });
 }

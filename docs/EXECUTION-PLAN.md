@@ -11,11 +11,11 @@
 | 5b Escrow lock/release API | Done | /api/v1/escrow/* + seed escrow offer |
 | 5c USDC config path | Done | USDC_TOKEN_ID (optional live) |
 | 5e One-shot `/api/v1/buy` + health + rate limit | Done |
-| 5f Deploy guide | Done — docs/DEPLOY.md |
-| 6 Postgres/Supabase | Next |
-| 7 Real USDC HTS settle + strict amount verify | Next |
-| 8 Production deploy + domain | Next |
-| 9 Full Spend Guardian package merge | Later |
+| 5g agents/me + offer DELETE + webhooks | Done |
+| 5h Docker + PM2 (port 3010) + schema.sql | Done |
+| 6 Postgres adapter wired to DATABASE_URL | Next |
+| 7 Real USDC HTS settle | Next |
+| 8 Public domain | Next |
 
 ## Run smoke
 ```bash
