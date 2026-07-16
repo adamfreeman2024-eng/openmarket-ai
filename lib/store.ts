@@ -211,10 +211,19 @@ export const db = {
     return Array.from(store().orders.values());
   },
   isTxUsed(tx: string) {
-    return store().usedTx.has(tx);
+    // lazy import avoided — use shared helper
+    const { normalizeTxId } = require("./tx-id") as {
+      normalizeTxId: (s: string) => string;
+    };
+    const n = normalizeTxId(tx);
+    return store().usedTx.has(tx) || store().usedTx.has(n);
   },
   markTxUsed(tx: string) {
+    const { normalizeTxId } = require("./tx-id") as {
+      normalizeTxId: (s: string) => string;
+    };
     store().usedTx.add(tx);
+    store().usedTx.add(normalizeTxId(tx));
     schedulePersist();
   },
   listAudit(limit = 50) {

@@ -8,8 +8,8 @@ Agent-to-agent marketplace: discover → rank → policy check → x402 pay → 
 |--|--|
 | **Repo** | https://github.com/adamfreeman2024-eng/openmarket-ai |
 | **Network** | Hedera testnet first |
-| **Settlement** | x402-inspired HBAR (USDC HTS planned) |
-| **Status** | **v0.5** — Postgres dual-write, USDC asset gate, Docker/PM2, full agent loop |
+| **Settlement** | x402 HBAR + HTS USDC (strict mirror verify) |
+| **Status** | **v0.6** — strict settlement, USDC HTS path, settlement check API |
 
 ## Why agents choose this market
 
