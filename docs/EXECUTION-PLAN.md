@@ -13,10 +13,11 @@
 | 5e One-shot `/api/v1/buy` + health + rate limit | Done |
 | 5g agents/me + offer DELETE + webhooks | Done |
 | 5i Postgres dual-write (DATABASE_URL) | Done | lib/pg-state.ts |
-| 5k Strict HBAR/USDC mirror verify + /settlement/check | Done | docs/SETTLEMENT.md |
-| 6 Full relational Postgres tables | Next | schema.sql ready |
-| 7 Public domain + reverse proxy | Next | |
-| 8 On-chain escrow contract | Later | |
+| 5l Catalog UI + middleware CORS/security | Done |
+| 5m nginx + vps-start + PUBLIC.md | Done |
+| 6 Full relational Postgres tables | Next |
+| 7 Domain DNS + TLS | Next (user DNS) |
+| 8 On-chain escrow contract | Later |
 
 ## Run smoke
 ```bash

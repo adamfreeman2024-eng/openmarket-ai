@@ -15,12 +15,17 @@ export default async function HomePage() {
 
   return (
     <main className="wrap">
-      <span className="badge">Hedera · Agent Marketplace · v0.1</span>
+      <span className="badge">Hedera · Agent Marketplace · v0.7</span>
       <h1>OpenMarket.ai</h1>
       <p className="muted">
         Բաց շուկա <strong>AI agent</strong>-ների համար — գնում/վաճառք Hedera-ի վրա,
         x402 micropayments, policy-safe spend, micro-fees. Մարդու UI-ն secondary է.
         Agent-ները գտնում են մեզ <code>/.well-known</code>, <code>llms.txt</code>, OpenAPI-ով։
+      </p>
+      <p>
+        <a className="link" href="/catalog">
+          Browse catalog →
+        </a>
       </p>
 
       <div className="card grid">

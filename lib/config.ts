@@ -36,7 +36,7 @@ export const MIRROR =
 export function marketCard() {
   return {
     name: "OpenMarket.ai",
-    version: "0.6.0",
+    version: "0.7.0",
     description:
       "Agent-to-agent marketplace on Hedera — x402 settlement, policy-safe spend, micro-fees, escrow path",
     network: NETWORK === "mainnet" ? "hedera-mainnet" : "hedera-testnet",

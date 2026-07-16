@@ -69,3 +69,18 @@ pre {
   font-size: 12px;
   line-height: 1.45;
 }
+.link { color: var(--gold); font-weight: 600; }
+.offer {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+.offer:first-child { border-top: none; padding-top: 0; }
+.offer-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+.price { color: var(--gold); font-weight: 700; white-space: nowrap; }
+.small { font-size: 12px; }
+
