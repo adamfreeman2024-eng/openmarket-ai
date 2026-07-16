@@ -12,12 +12,12 @@ export function OPTIONS() {
 }
 
 const Body = z.object({
-  proof: z.string().min(2).max(2000),
+  reason: z.string().min(3).max(2000),
 });
 
 /**
- * POST /api/v1/escrow/:id/release
- * Seller API key required unless ALLOW_DEV_FAKE_SETTLEMENT (demo only).
+ * POST /api/v1/escrow/:id/dispute
+ * Buyer opens dispute while locked — freezes release until resolve/refund.
  */
 export async function POST(
   req: NextRequest,
@@ -27,15 +27,6 @@ export async function POST(
   const { id } = await ctx.params;
   const escrow = db.getEscrow(id);
   if (!escrow) return json({ ok: false, error: "Escrow not found" }, 404);
-  if (escrow.status === "disputed") {
-    return json(
-      {
-        ok: false,
-        error: "Escrow disputed — resolve via refund or operator",
-      },
-      409
-    );
-  }
   if (escrow.status !== "locked") {
     return json({ ok: false, error: `Escrow status ${escrow.status}` }, 409);
   }
@@ -43,42 +34,42 @@ export async function POST(
   const body = await req.json().catch(() => null);
   const parsed = Body.safeParse(body);
   if (!parsed.success) {
-    return json({ ok: false, error: "proof required" }, 400);
+    return json({ ok: false, error: "reason required" }, 400);
   }
 
+  const order = db.getOrder(escrow.orderId);
   const agentOrRes = requireAgent(req);
   if (isResponse(agentOrRes)) {
-    if (!ALLOW_DEV_FAKE_SETTLEMENT) {
-      return agentOrRes; // 401
+    if (!ALLOW_DEV_FAKE_SETTLEMENT) return agentOrRes;
+  } else {
+    const isBuyer = order?.buyerAgentId === agentOrRes.id;
+    const isSeller = agentOrRes.id === escrow.sellerAgentId;
+    if (!isBuyer && !isSeller) {
+      return json({ ok: false, error: "Only parties can dispute" }, 403);
     }
-    // dev: allow unauthenticated release for smoke
-  } else if (agentOrRes.id !== escrow.sellerAgentId) {
-    return json({ ok: false, error: "Only seller agent can release" }, 403);
   }
 
-  escrow.status = "released";
-  escrow.proof = parsed.data.proof;
+  escrow.status = "disputed";
+  escrow.disputeReason = parsed.data.reason;
   escrow.updatedAt = new Date().toISOString();
   db.putEscrow(escrow);
 
-  const order = db.getOrder(escrow.orderId);
   if (order) {
-    order.status = "completed";
     order.result = {
+      ...(typeof order.result === "object" && order.result
+        ? (order.result as object)
+        : {}),
       escrowId: escrow.id,
-      released: true,
-      proof: escrow.proof,
+      disputed: true,
+      disputeReason: parsed.data.reason,
     };
-    order.completedAt = new Date().toISOString();
     db.putOrder(order);
-    const seller = db.getAgent(escrow.sellerAgentId);
-    if (seller) {
-      seller.stats.sales += 1;
-      seller.stats.success += 1;
-      db.putAgent(seller);
-    }
   }
 
-  audit("escrow.released", { escrowId: id, orderId: escrow.orderId });
+  audit("escrow.disputed", {
+    escrowId: id,
+    orderId: escrow.orderId,
+    reason: parsed.data.reason,
+  });
   return json({ ok: true, escrow, order });
 }

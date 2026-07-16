@@ -8,6 +8,10 @@ export type EscrowRecord = {
   buyerWallet?: string;
   sellerAgentId: string;
   proof?: string;
+  reason?: string;
+  disputeReason?: string;
+  /** Future: Hedera contract / schedule id */
+  onChainRef?: string;
   createdAt: string;
   updatedAt: string;
 };
