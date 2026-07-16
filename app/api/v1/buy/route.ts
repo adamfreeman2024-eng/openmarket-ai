@@ -2,13 +2,14 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { ensureSeedCatalog, db, newId, audit, utcDay } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
-import { PLATFORM_FEE_BPS } from "@/lib/config";
-import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import {
   verifyPayment,
   fulfillInline,
   createEscrowForOrder,
 } from "@/lib/settlement";
+import { buildOnChainDepositPlan, isEscrowContractLive } from "@/lib/onchain-escrow";
+import { PLATFORM_FEE_BPS, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
+import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
@@ -167,7 +168,23 @@ export async function POST(req: NextRequest) {
       db.putAgent(buyer);
     }
     audit("buy.escrow", { orderId: order.id, escrowId: escrow.id });
-    return json({ ok: true, order, escrow, settlementMode: v.mode });
+    const onChain = buildOnChainDepositPlan({
+      orderId: order.id,
+      sellerEvmAddress: "0x0000000000000000000000000000000000000000",
+      amountWei: "0",
+    });
+    if (isEscrowContractLive()) {
+      escrow.onChainRef = onChain.ok ? String(onChain.args?.orderId) : ESCROW_CONTRACT_ADDRESS;
+      db.putEscrow(escrow);
+    }
+    return json({
+      ok: true,
+      order,
+      escrow,
+      settlementMode: v.mode,
+      onChainEscrow: onChain,
+      contractLive: isEscrowContractLive(),
+    });
   }
 
   const t0 = Date.now();

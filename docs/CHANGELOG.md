@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+- lib/onchain-escrow.ts ABI + deposit/release/refund plans
+- GET/POST /api/v1/escrow/onchain
+- GitHub Actions CI (build + smoke + escrow e2e)
+- scripts/cron-expire.sh
+
 ## 1.0.0 — Foundation complete (2026-07-16)
 
 Agent-to-agent marketplace foundation on Hedera.

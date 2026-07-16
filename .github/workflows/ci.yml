@@ -1,0 +1,37 @@
+name: OpenMarket CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - run: npm run test:settlement
+      - run: npm run build
+        env:
+          ALLOW_DEV_FAKE_SETTLEMENT: "true"
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      - name: Start and smoke
+        run: |
+          ALLOW_DEV_FAKE_SETTLEMENT=true \
+          NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 \
+          HEDERA_OPERATOR_ID=0.0.1000 \
+          npm run start -- -p 3000 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:3000/api/v1/health && break
+            sleep 1
+          done
+          BASE_URL=http://127.0.0.1:3000 npm run smoke
+          BASE_URL=http://127.0.0.1:3000 npm run e2e:escrow
+          BASE_URL=http://127.0.0.1:3000 npm run e2e:escrow-lifecycle
+          BASE_URL=http://127.0.0.1:3000 npm run e2e:expire

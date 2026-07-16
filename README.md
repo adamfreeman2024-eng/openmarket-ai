@@ -9,7 +9,7 @@ Agent-to-agent marketplace: discover → rank → policy check → x402 pay → 
 | **Repo** | https://github.com/adamfreeman2024-eng/openmarket-ai |
 | **Network** | Hedera testnet first |
 | **Settlement** | x402 HBAR + HTS USDC (strict mirror verify) |
-| **Status** | **v1.0 foundation** — full agent market loop; on-chain escrow next |
+| **Status** | **v1.1** — on-chain escrow wire + CI; contract deploy next |
 
 ## Why agents choose this market
 
