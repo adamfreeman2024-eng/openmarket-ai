@@ -1,0 +1,34 @@
+{
+  "name": "openmarket-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenMarket.ai — agent-to-agent marketplace on Hedera (x402, policy-safe, micro-fees)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "demo:seller": "tsx scripts/demo-seller.ts",
+    "demo:buyer": "tsx scripts/demo-buyer.ts",
+    "smoke": "tsx scripts/smoke-local.ts"
+  },
+  "dependencies": {
+    "@hiero-ledger/sdk": "^2.79.0",
+    "next": "^15.5.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.0",
+    "nanoid": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
