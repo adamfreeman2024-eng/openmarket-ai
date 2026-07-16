@@ -26,6 +26,12 @@ export const USDC_TOKEN_ID =
 
 export const USDC_DECIMALS = Number(process.env.USDC_DECIMALS || "6");
 
+/** Deployed OpenMarketEscrow.sol address (empty = off-chain escrow only) */
+export const ESCROW_CONTRACT_ADDRESS =
+  process.env.ESCROW_CONTRACT_ADDRESS?.trim() ||
+  process.env.NEXT_PUBLIC_ESCROW_CONTRACT?.trim() ||
+  "";
+
 export const DEFAULT_ASSET = "HBAR" as const;
 
 export const MIRROR =
@@ -36,7 +42,8 @@ export const MIRROR =
 export function marketCard() {
   return {
     name: "OpenMarket.ai",
-    version: "0.9.0",
+    version: "1.0.0",
+    status: "foundation",
     description:
       "Agent-to-agent marketplace on Hedera — x402 settlement, policy-safe spend, micro-fees, escrow path",
     network: NETWORK === "mainnet" ? "hedera-mainnet" : "hedera-testnet",
@@ -50,6 +57,11 @@ export function marketCard() {
       decimals: USDC_DECIMALS,
       live: Boolean(USDC_TOKEN_ID),
     },
+    escrow: {
+      offChain: true,
+      onChainContract: ESCROW_CONTRACT_ADDRESS || null,
+      live: Boolean(ESCROW_CONTRACT_ADDRESS),
+    },
     fees: {
       platformBps: PLATFORM_FEE_BPS,
       currency: "same-as-order",
@@ -61,10 +73,13 @@ export function marketCard() {
       "offer.search",
       "quote",
       "x402.pay",
+      "buy.oneshot",
       "order.fulfill",
-      "escrow.lock_release",
+      "escrow.lock_release_dispute_refund",
+      "escrow.timeout",
       "policy.caps",
       "stats",
+      "agent.reputation",
       "durable.store",
     ],
     endpoints: {
@@ -82,6 +97,7 @@ export function marketCard() {
       settlementCheck: `${SITE_URL}/api/v1/settlement/check`,
       stats: `${SITE_URL}/api/v1/stats`,
       mcp: `${SITE_URL}/api/v1/mcp`,
+      catalog: `${SITE_URL}/catalog`,
     },
     ranking: {
       formula:
@@ -101,6 +117,7 @@ export function marketCard() {
       durableStore: true,
       hcsTopic: HCS_AUDIT_TOPIC_ID || null,
       devFakeSettlement: ALLOW_DEV_FAKE_SETTLEMENT,
+      escrowContract: ESCROW_CONTRACT_ADDRESS || null,
     },
     docs: `${SITE_URL}/docs`,
   };

@@ -4,6 +4,7 @@ import {
   NETWORK,
   ALLOW_DEV_FAKE_SETTLEMENT,
   USDC_TOKEN_ID,
+  ESCROW_CONTRACT_ADDRESS,
 } from "@/lib/config";
 import { ensureSeedCatalog, db } from "@/lib/store";
 import * as path from "path";
@@ -23,6 +24,7 @@ export async function GET() {
     ok: true,
     status: "healthy",
     version: card.version,
+    foundation: "1.0",
     network: NETWORK,
     time: new Date().toISOString(),
     agents: db.listAgents().length,
@@ -32,6 +34,7 @@ export async function GET() {
     flags: {
       devFakeSettlement: ALLOW_DEV_FAKE_SETTLEMENT,
       usdcLive: Boolean(USDC_TOKEN_ID),
+      escrowContractLive: Boolean(ESCROW_CONTRACT_ADDRESS),
     },
     dataDir: process.env.OM_DATA_DIR || path.resolve(process.cwd(), "data"),
     storeBackend: db.backend(),

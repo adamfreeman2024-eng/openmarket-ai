@@ -1,5 +1,6 @@
 /**
  * Tiny client helpers for agent scripts (no extra deps).
+ * Copy this file or import from openmarket-ai when embedded.
  */
 export type OmClientOpts = {
   baseUrl: string;
@@ -20,6 +21,9 @@ export function createOpenMarketClient(opts: OmClientOpts) {
   return {
     async marketCard() {
       return fetch(`${base}/.well-known/openmarket.json`).then((r) => r.json());
+    },
+    async health() {
+      return fetch(`${base}/api/v1/health`).then((r) => r.json());
     },
     async search(q: {
       capability?: string;
@@ -44,6 +48,11 @@ export function createOpenMarketClient(opts: OmClientOpts) {
         body: JSON.stringify(body),
       }).then((r) => r.json());
     },
+    async me() {
+      return fetch(`${base}/api/v1/agents/me`, {
+        headers: headers(),
+      }).then((r) => r.json());
+    },
     async createOffer(body: Record<string, unknown>) {
       return fetch(`${base}/api/v1/offers`, {
         method: "POST",
@@ -63,8 +72,33 @@ export function createOpenMarketClient(opts: OmClientOpts) {
         body: JSON.stringify(opts),
       }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
     },
-    async health() {
-      return fetch(`${base}/api/v1/health`).then((r) => r.json());
+    async orders(limit = 50) {
+      return fetch(`${base}/api/v1/orders?limit=${limit}`, {
+        headers: headers(),
+      }).then((r) => r.json());
+    },
+    async releaseEscrow(id: string, proof: string) {
+      return fetch(`${base}/api/v1/escrow/${id}/release`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ proof }),
+      }).then((r) => r.json());
+    },
+    async disputeEscrow(id: string, reason: string) {
+      return fetch(`${base}/api/v1/escrow/${id}/dispute`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ reason }),
+      }).then((r) => r.json());
+    },
+    async refundEscrow(id: string, reason?: string) {
+      return fetch(`${base}/api/v1/escrow/${id}/refund`, {
+        method: "POST",
+        headers: headers(),
+        body: JSON.stringify({ reason }),
+      }).then((r) => r.json());
     },
   };
 }
+
+export default createOpenMarketClient;

@@ -13,12 +13,10 @@
 | 5e One-shot `/api/v1/buy` + health + rate limit | Done |
 | 5g agents/me + offer DELETE + webhooks | Done |
 | 5i Postgres dual-write (DATABASE_URL) | Done | lib/pg-state.ts |
-| 5p Escrow expire + operator resolve | Done |
-| 5q OpenMarketEscrow.sol skeleton | Done | contracts/ |
-| 5r Agent-scoped GET /orders | Done |
-| 6 Full relational Postgres tables | Next |
-| 7 Domain DNS + TLS | Next |
-| 8 Deploy on-chain escrow | Later |
+| 1.0 Foundation freeze | Done | docs/FOUNDATION-1.0.md + CHANGELOG |
+| 1.1 Deploy escrow contract testnet | Next | |
+| 1.2 Domain TLS | Next | |
+| 1.3 Relational Postgres | Later | |
 
 ## Run smoke
 ```bash

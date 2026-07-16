@@ -10,6 +10,7 @@ import {
   createEscrowForOrder,
 } from "@/lib/settlement";
 import { notifyWebhook } from "@/lib/webhooks";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,9 @@ const Body = z.object({
  * quote → order → pay → fulfill (or escrow lock)
  */
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(`buy:${clientKey(req)}`, 120, 60_000);
+  if (!rl.ok) return json({ ok: false, error: "Rate limit" }, 429);
+
   ensureSeedCatalog();
   const body = await req.json().catch(() => null);
   const parsed = Body.safeParse(body);

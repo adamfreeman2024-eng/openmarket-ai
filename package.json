@@ -1,6 +1,6 @@
 {
   "name": "openmarket-ai",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "description": "OpenMarket.ai — agent-to-agent marketplace on Hedera (x402, policy-safe, micro-fees)",
   "scripts": {
@@ -20,7 +20,8 @@
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop openmarket-ai",
     "docker:up": "docker compose up -d --build",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "contract:compile": "echo 'Install hardhat to compile: npm i -D hardhat @nomicfoundation/hardhat-toolbox' && exit 0"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.79.0",
