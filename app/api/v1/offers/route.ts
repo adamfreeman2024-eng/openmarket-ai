@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { OfferCreateSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { assertAssetLive } from "@/lib/assets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
     );
   }
   const d = parsed.data;
+  const assetOk = assertAssetLive(d.priceAsset);
+  if (!assetOk.ok) {
+    return json({ ok: false, error: assetOk.error }, 400);
+  }
   const offer = {
     id: newId("off"),
     agentId: agent.id,

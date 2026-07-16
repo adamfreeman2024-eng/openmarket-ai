@@ -12,10 +12,11 @@
 | 5c USDC config path | Done | USDC_TOKEN_ID (optional live) |
 | 5e One-shot `/api/v1/buy` + health + rate limit | Done |
 | 5g agents/me + offer DELETE + webhooks | Done |
-| 5h Docker + PM2 (port 3010) + schema.sql | Done |
-| 6 Postgres adapter wired to DATABASE_URL | Next |
-| 7 Real USDC HTS settle | Next |
-| 8 Public domain | Next |
+| 5i Postgres dual-write (DATABASE_URL) | Done | lib/pg-state.ts |
+| 5j USDC asset gate + tokenId in x402 | Done | lib/assets.ts |
+| 6 Full relational Postgres tables | Next | schema.sql ready |
+| 7 Real USDC HTS settle | Next | |
+| 8 Public domain | Next | |
 
 ## Run smoke
 ```bash

@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { QuoteRequestSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
-import { PLATFORM_FEE_BPS, SITE_URL } from "@/lib/config";
+import { PLATFORM_FEE_BPS, SITE_URL, USDC_TOKEN_ID } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
+import { assertAssetLive } from "@/lib/assets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
   const offer = db.getOffer(parsed.data.offerId);
   if (!offer || !offer.active) {
     return json({ ok: false, error: "Offer not found" }, 404);
+  }
+  const assetOk = assertAssetLive(offer.priceAsset);
+  if (!assetOk.ok) {
+    return json({ ok: false, error: assetOk.error }, 400);
   }
   const seller = db.getAgent(offer.agentId);
   const key = getApiKey(req);
@@ -83,11 +88,14 @@ export async function POST(req: NextRequest) {
       asset: quote.priceAsset,
       amount: quote.totalAmount,
       payTo: quote.payTo,
+      tokenId:
+        quote.priceAsset === "USDC" ? USDC_TOKEN_ID || null : null,
       memo: `openmarket:${quote.id}`,
       expiresAt: quote.expiresAt,
       next: {
         createOrder: `${SITE_URL}/api/v1/orders`,
         body: { quoteId: quote.id },
+        orBuy: `${SITE_URL}/api/v1/buy`,
       },
     },
     policyResults,

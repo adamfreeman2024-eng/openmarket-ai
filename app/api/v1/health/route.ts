@@ -34,5 +34,6 @@ export async function GET() {
       usdcLive: Boolean(USDC_TOKEN_ID),
     },
     dataDir: process.env.OM_DATA_DIR || path.resolve(process.cwd(), "data"),
+    storeBackend: db.backend(),
   });
 }

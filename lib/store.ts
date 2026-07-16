@@ -1,6 +1,5 @@
 /**
- * Durable store: memory + JSON file persistence (data/openmarket-store.json).
- * Survives process restarts. Swap to Postgres later without changing API.
+ * Durable store: memory + JSON file + optional Postgres dual-write (DATABASE_URL).
  */
 import { nanoid } from "nanoid";
 import * as fs from "fs";
@@ -12,6 +11,15 @@ import type {
   OrderRecord,
   AuditEvent,
 } from "./types";
+import type { EscrowRecord } from "./store-types";
+import {
+  hasDatabaseUrl,
+  pgLoadState,
+  pgSaveState,
+  type PersistShape,
+} from "./pg-state";
+
+export type { EscrowRecord } from "./store-types";
 
 type StoreShape = {
   agents: Map<string, AgentRecord>;
@@ -24,30 +32,10 @@ type StoreShape = {
   escrows: Map<string, EscrowRecord>;
 };
 
-export type EscrowRecord = {
-  id: string;
-  orderId: string;
-  status: "locked" | "released" | "refunded" | "disputed";
-  amount: number;
-  asset: string;
-  buyerWallet?: string;
-  sellerAgentId: string;
-  proof?: string;
-  createdAt: string;
-  updatedAt: string;
+const g = globalThis as unknown as {
+  __omStore?: StoreShape;
+  __omPgHydrated?: boolean;
 };
-
-type PersistShape = {
-  agents: AgentRecord[];
-  offers: OfferRecord[];
-  quotes: QuoteRecord[];
-  orders: OrderRecord[];
-  usedTx: string[];
-  audit: AuditEvent[];
-  escrows: EscrowRecord[];
-};
-
-const g = globalThis as unknown as { __omStore?: StoreShape; __omLoaded?: boolean };
 
 const DATA_DIR =
   process.env.OM_DATA_DIR || path.resolve(process.cwd(), "data");
@@ -66,26 +54,42 @@ function emptyStore(): StoreShape {
   };
 }
 
+function hydrate(data: PersistShape): StoreShape {
+  const s = emptyStore();
+  for (const a of data.agents || []) {
+    s.agents.set(a.id, a);
+    s.agentsByKey.set(a.apiKey, a.id);
+  }
+  for (const o of data.offers || []) s.offers.set(o.id, o);
+  for (const q of data.quotes || []) s.quotes.set(q.id, q);
+  for (const o of data.orders || []) s.orders.set(o.id, o);
+  for (const t of data.usedTx || []) s.usedTx.add(t);
+  s.audit = data.audit || [];
+  for (const e of data.escrows || []) s.escrows.set(e.id, e);
+  return s;
+}
+
 function loadFromDisk(): StoreShape {
   try {
     if (!fs.existsSync(DATA_FILE)) return emptyStore();
     const raw = fs.readFileSync(DATA_FILE, "utf8");
-    const data = JSON.parse(raw) as PersistShape;
-    const s = emptyStore();
-    for (const a of data.agents || []) {
-      s.agents.set(a.id, a);
-      s.agentsByKey.set(a.apiKey, a.id);
-    }
-    for (const o of data.offers || []) s.offers.set(o.id, o);
-    for (const q of data.quotes || []) s.quotes.set(q.id, q);
-    for (const o of data.orders || []) s.orders.set(o.id, o);
-    for (const t of data.usedTx || []) s.usedTx.add(t);
-    s.audit = data.audit || [];
-    for (const e of data.escrows || []) s.escrows.set(e.id, e);
-    return s;
+    return hydrate(JSON.parse(raw) as PersistShape);
   } catch {
     return emptyStore();
   }
+}
+
+function snapshot(): PersistShape {
+  const s = store();
+  return {
+    agents: Array.from(s.agents.values()),
+    offers: Array.from(s.offers.values()),
+    quotes: Array.from(s.quotes.values()),
+    orders: Array.from(s.orders.values()),
+    usedTx: Array.from(s.usedTx),
+    audit: s.audit.slice(0, 500),
+    escrows: Array.from(s.escrows.values()),
+  };
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -102,26 +106,40 @@ function schedulePersist() {
 }
 
 export function persistNow() {
-  const s = store();
+  const payload = snapshot();
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const payload: PersistShape = {
-    agents: Array.from(s.agents.values()),
-    offers: Array.from(s.offers.values()),
-    quotes: Array.from(s.quotes.values()),
-    orders: Array.from(s.orders.values()),
-    usedTx: Array.from(s.usedTx),
-    audit: s.audit.slice(0, 500),
-    escrows: Array.from(s.escrows.values()),
-  };
   const tmp = DATA_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2));
   fs.renameSync(tmp, DATA_FILE);
+  if (hasDatabaseUrl()) {
+    void pgSaveState(payload).catch((e) =>
+      console.error("[store] pg persist failed", e)
+    );
+  }
 }
 
 function store(): StoreShape {
   if (!g.__omStore) {
     g.__omStore = loadFromDisk();
-    g.__omLoaded = true;
+    // Prefer Postgres snapshot if available (async hydrate once)
+    if (hasDatabaseUrl() && !g.__omPgHydrated) {
+      g.__omPgHydrated = true;
+      void pgLoadState()
+        .then((state) => {
+          if (state && (state.agents?.length || state.offers?.length)) {
+            g.__omStore = hydrate(state);
+            // also mirror to local file for backup
+            try {
+              if (!fs.existsSync(DATA_DIR))
+                fs.mkdirSync(DATA_DIR, { recursive: true });
+              fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2));
+            } catch {
+              /* ignore */
+            }
+          }
+        })
+        .catch((e) => console.error("[store] pg load failed", e));
+    }
   }
   return g.__omStore;
 }
@@ -217,16 +235,18 @@ export const db = {
   listEscrows() {
     return Array.from(store().escrows.values());
   },
+  backend() {
+    return hasDatabaseUrl() ? "file+postgres" : "file";
+  },
 };
 
 /** Seed demo seller + offers; ensure core demo capabilities always present */
 export function ensureSeedCatalog() {
-  store(); // load disk
+  store();
   const hasEcho = db
     .listOffers()
     .some((o) => o.capability === "echo.demo" && o.active);
   if (store().agents.size > 0 && hasEcho) {
-    // Ensure escrow demo offer exists for later phases
     const hasEscrow = db
       .listOffers()
       .some((o) => o.capability === "delivery.demo" && o.active);
@@ -257,13 +277,14 @@ export function ensureSeedCatalog() {
     return;
   }
   if (store().agents.size > 0) return;
+
   const apiKey = `omk_seed_${nanoid(16)}`;
   const agent: AgentRecord = {
     id: newId("agt"),
     apiKey,
     name: "OpenMarket Seed Seller",
     walletAccountId: "0.0.1001",
-    capabilities: ["echo.demo", "text.summarize"],
+    capabilities: ["echo.demo", "text.summarize", "delivery.demo"],
     policy: {
       dailySpendLimit: 100,
       maxPerTx: 10,
