@@ -51,26 +51,20 @@ export function createOpenMarketClient(opts: OmClientOpts) {
         body: JSON.stringify(body),
       }).then((r) => r.json());
     },
-    async buyDev(offerId: string, input?: Record<string, unknown>) {
-      const quote = await fetch(`${base}/api/v1/quotes`, {
+    async buyOneShot(opts: {
+      offerId: string;
+      input?: Record<string, unknown>;
+      devFakePay?: boolean;
+      transactionId?: string;
+    }) {
+      return fetch(`${base}/api/v1/buy`, {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ offerId, input }),
-      }).then((r) => r.json());
-      if (!quote.quote?.id) return { step: "quote", quote };
-      const orderRes = await fetch(`${base}/api/v1/orders`, {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({ quoteId: quote.quote.id }),
-      });
-      const order = await orderRes.json();
-      if (!order.orderId) return { step: "order", order, http: orderRes.status };
-      const pay = await fetch(`${base}/api/v1/orders/${order.orderId}/pay`, {
-        method: "POST",
-        headers: headers(),
-        body: JSON.stringify({ devFakePay: true }),
-      }).then((r) => r.json());
-      return { step: "done", quote, order, pay };
+        body: JSON.stringify(opts),
+      }).then(async (r) => ({ status: r.status, ...(await r.json()) }));
+    },
+    async health() {
+      return fetch(`${base}/api/v1/health`).then((r) => r.json());
     },
   };
 }

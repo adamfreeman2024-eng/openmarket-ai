@@ -3,6 +3,7 @@ import { AgentRegisterSchema } from "@/lib/types";
 import { db, newId, utcDay, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
 import { nanoid } from "nanoid";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +14,9 @@ export function OPTIONS() {
 
 /** POST /api/v1/agents/register — agent-native signup (1 call) */
 export async function POST(req: NextRequest) {
+  const rl = rateLimit(`reg:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return json({ ok: false, error: "Rate limit" }, 429);
+
   ensureSeedCatalog();
   const body = await req.json().catch(() => null);
   const parsed = AgentRegisterSchema.safeParse(body);
@@ -23,10 +27,10 @@ export async function POST(req: NextRequest) {
     );
   }
   const d = parsed.data;
-  const apiKey = `omk_${nanoid(24)}`;
+  const key = "omk_" + nanoid(24);
   const agent = {
     id: newId("agt"),
-    apiKey,
+    apiKey: key,
     name: d.name,
     walletAccountId: d.walletAccountId,
     webhookUrl: d.webhookUrl,
@@ -53,7 +57,7 @@ export async function POST(req: NextRequest) {
   return json({
     ok: true,
     agentId: agent.id,
-    apiKey: agent.apiKey,
+    apiKey: key,
     cardUrl: `/api/v1/agents/${agent.id}`,
     note: "Store apiKey securely — required as X-Api-Key for seller/buyer calls",
   });

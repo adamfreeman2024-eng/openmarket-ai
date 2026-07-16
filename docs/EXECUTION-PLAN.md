@@ -10,11 +10,12 @@
 | 5a Durable file store | Done | data/openmarket-store.json |
 | 5b Escrow lock/release API | Done | /api/v1/escrow/* + seed escrow offer |
 | 5c USDC config path | Done | USDC_TOKEN_ID (optional live) |
-| 5d Agent client helper | Done | lib/agent-client.ts |
-| 6 Postgres/Supabase | Next | replace file store |
-| 7 Real USDC HTS settle + strict amount verify | Next | |
-| 8 Deploy production domain | Next | Hostinger/Vercel |
-| 9 Full Spend Guardian package merge | Later | |
+| 5e One-shot `/api/v1/buy` + health + rate limit | Done |
+| 5f Deploy guide | Done — docs/DEPLOY.md |
+| 6 Postgres/Supabase | Next |
+| 7 Real USDC HTS settle + strict amount verify | Next |
+| 8 Production deploy + domain | Next |
+| 9 Full Spend Guardian package merge | Later |
 
 ## Run smoke
 ```bash

@@ -48,6 +48,17 @@ export async function GET() {
           description: "transactionId or devFakePay",
         },
       },
+      "/api/v1/buy": {
+        post: {
+          summary: "One-shot buy (quote+order+pay)",
+          description: "Returns 402 if no payment proof; or completes with devFakePay/transactionId",
+        },
+      },
+      "/api/v1/health": { get: { summary: "Health probe" } },
+      "/api/v1/escrow": { get: { summary: "List escrows" } },
+      "/api/v1/escrow/{id}/release": {
+        post: { summary: "Release escrow with delivery proof" },
+      },
       "/api/v1/stats": { get: { summary: "Market stats" } },
       "/api/v1/mcp": { get: { summary: "MCP-lite tool list" } },
     },

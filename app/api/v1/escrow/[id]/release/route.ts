@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { z } from "zod";
+import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ const Body = z.object({
 
 /**
  * POST /api/v1/escrow/:id/release
- * Seller (or operator) provides delivery proof → release + complete order
+ * Seller API key required unless ALLOW_DEV_FAKE_SETTLEMENT (demo only).
  */
 export async function POST(
   req: NextRequest,
@@ -36,15 +37,15 @@ export async function POST(
     return json({ ok: false, error: "proof required" }, 400);
   }
 
-  // Optional: seller api key must match escrow seller
   const agentOrRes = requireAgent(req);
-  if (!isResponse(agentOrRes)) {
-    if (agentOrRes.id !== escrow.sellerAgentId) {
-      return json({ ok: false, error: "Only seller agent can release" }, 403);
+  if (isResponse(agentOrRes)) {
+    if (!ALLOW_DEV_FAKE_SETTLEMENT) {
+      return agentOrRes; // 401
     }
+    // dev: allow unauthenticated release for smoke
+  } else if (agentOrRes.id !== escrow.sellerAgentId) {
+    return json({ ok: false, error: "Only seller agent can release" }, 403);
   }
-  // If no auth, allow in dev for smoke (document this)
-  // Production: require seller key
 
   escrow.status = "released";
   escrow.proof = parsed.data.proof;
