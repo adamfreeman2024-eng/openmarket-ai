@@ -1,0 +1,26 @@
+{
+  "name": "@openmarket/mcp-server",
+  "version": "1.0.0",
+  "description": "OpenMarket.ai MCP Server — let AI agents (Claude/GPT/Gemini) use the marketplace directly",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "openmarket-mcp": "src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": ["mcp", "openmarket", "ai", "agent", "marketplace", "claude", "gpt"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

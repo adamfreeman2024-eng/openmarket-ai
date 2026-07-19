@@ -16,3 +16,6 @@ tsconfig.tsbuildinfo
 cache/
 artifacts/
 typechain-types/
+sdk/python/**/__pycache__/
+sdk/python/**/*.pyc
+sdk/*/node_modules/

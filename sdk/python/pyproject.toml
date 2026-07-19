@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "openmarket-py"
+version = "1.0.0"
+description = "OpenMarket.ai Python SDK — agent-to-agent marketplace on Hedera"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+keywords = ["openmarket", "hedera", "agent", "marketplace", "x402", "ai", "sdk"]
+
+[project.scripts]
+openmarket = "openmarket.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
