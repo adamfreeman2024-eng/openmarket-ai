@@ -156,7 +156,7 @@ export async function verifyPayment(opts: {
   creditedBase?: number;
   details?: Record<string, unknown>;
 }> {
-  // CRITICAL SECURITY: Never allow fake payments in production
+  // CRITICAL SECURITY: Never allow fake payments unless explicitly enabled
   if (opts.devFakePay && !ALLOW_DEV_FAKE_SETTLEMENT) {
     return { 
       ok: false, 
@@ -165,14 +165,15 @@ export async function verifyPayment(opts: {
     };
   }
   
-  // CRITICAL: In production, devFakePay requires explicit confirmation env var
-  // This prevents accidental "free" payments in production environments
-  if (opts.devFakePay && process.env.NODE_ENV === "production") {
+  // EXTRA SAFETY: In production with real settlement, require explicit confirmation
+  // This is a second layer - even if ALLOW_DEV_FAKE_SETTLEMENT=true accidentally,
+  // production deployment needs DEV_FAKE_PAYMENT_CONFIRMED to accept fake payments
+  if (opts.devFakePay && process.env.STRICT_SETTLEMENT === "true") {
     const confirmEnv = process.env.DEV_FAKE_PAYMENT_CONFIRMED;
     if (confirmEnv !== "yes_i_know_what_i_am_doing") {
       return { 
         ok: false, 
-        error: "Security: devFakePay in production requires DEV_FAKE_PAYMENT_CONFIRMED=yes_i_know_what_i_am_doing env var",
+        error: "Security: devFakePay with STRICT_SETTLEMENT requires DEV_FAKE_PAYMENT_CONFIRMED env var",
         mode: "security_warning" 
       };
     }

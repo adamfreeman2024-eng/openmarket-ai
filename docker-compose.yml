@@ -18,7 +18,7 @@ services:
       - TOKENROUTER_BASE_URL=${TOKENROUTER_BASE_URL:-https://api.tokenrouter.com/v1}
       - TOKENROUTER_MODEL=${TOKENROUTER_MODEL:-z-ai/glm-5.2-free}
       - LLM_FULFILL_ENABLED=${LLM_FULFILL_ENABLED:-true}
-      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_URL=${DATABASE_URL:-postgres://openmarket:openmarket@postgres:5432/openmarket}
       - OPERATOR_API_KEY=${OPERATOR_API_KEY:-}
     volumes:
       - om_data:/data
