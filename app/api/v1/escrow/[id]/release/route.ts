@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { z } from "zod";
-import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
+import { ALLOW_DEV_FAKE_SETTLEMENT, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
+import { onChainRelease, hashScanUrl } from "@/lib/onchain-escrow-live";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,22 @@ export async function POST(
   escrow.updatedAt = new Date().toISOString();
   db.putEscrow(escrow);
 
+  // On-chain release if contract is live
+  let onChainResult: { txHash?: string; hashScanUrl?: string; error?: string } | undefined;
+  if (ESCROW_CONTRACT_ADDRESS) {
+    const onChain = await onChainRelease(escrow.orderId);
+    if (onChain.ok && onChain.txHash) {
+      onChainResult = {
+        txHash: onChain.txHash,
+        hashScanUrl: hashScanUrl(onChain.txHash),
+      };
+      escrow.onChainRef = onChain.txHash;
+      db.putEscrow(escrow);
+    } else {
+      onChainResult = { error: onChain.error };
+    }
+  }
+
   const order = db.getOrder(escrow.orderId);
   if (order) {
     order.status = "completed";
@@ -73,6 +90,7 @@ export async function POST(
       escrowId: escrow.id,
       released: true,
       proof: escrow.proof,
+      onChain: onChainResult,
     };
     order.completedAt = new Date().toISOString();
     db.putOrder(order);
@@ -84,6 +102,6 @@ export async function POST(
     }
   }
 
-  audit("escrow.released", { escrowId: id, orderId: escrow.orderId });
-  return json({ ok: true, escrow, order });
+  audit("escrow.released", { escrowId: id, orderId: escrow.orderId, onChain: onChainResult });
+  return json({ ok: true, escrow, order, onChain: onChainResult });
 }

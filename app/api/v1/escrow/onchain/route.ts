@@ -4,6 +4,7 @@ import {
   buildOnChainDepositPlan,
   isEscrowContractLive,
 } from "@/lib/onchain-escrow";
+import { getContractInfo } from "@/lib/onchain-escrow-live";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,11 +13,26 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/escrow/onchain — contract status + ABI for agents */
+/** GET /api/v1/escrow/onchain — live contract status + info */
 export async function GET() {
+  const staticInfo = escrowContractInfo();
+
+  // Try to read live contract state
+  let liveInfo = null;
+  try {
+    liveInfo = await getContractInfo();
+  } catch {
+    // ignore — contract may not be reachable
+  }
+
   return json({
     ok: true,
-    ...escrowContractInfo(),
+    ...staticInfo,
+    live: liveInfo ? true : staticInfo.live,
+    contractState: liveInfo,
+    hashScanUrl: liveInfo
+      ? `https://hashscan.io/${liveInfo.address ? "testnet" : "testnet"}/contract/${staticInfo.address}`
+      : null,
   });
 }
 

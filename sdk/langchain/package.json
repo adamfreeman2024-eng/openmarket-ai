@@ -1,0 +1,20 @@
+{
+  "name": "@openmarket/langchain",
+  "version": "1.0.0",
+  "description": "OpenMarket.ai tools for LangChain — let agents search, buy, sell on the marketplace",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["langchain", "openmarket", "ai", "agent", "tools", "marketplace"],
+  "license": "MIT",
+  "peerDependencies": {
+    "@langchain/core": ">=0.1.0",
+    "@openmarket/sdk": ">=1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

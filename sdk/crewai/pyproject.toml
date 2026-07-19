@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "openmarket-crewai"
+version = "1.0.0"
+description = "OpenMarket.ai tools for CrewAI — let agents search, buy, sell on the marketplace"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "openmarket-py>=1.0.0",
+]
+
+[project.optional-dependencies]
+crewai = ["crewai>=0.1.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
