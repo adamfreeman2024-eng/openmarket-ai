@@ -1,20 +1,45 @@
-// Hardhat skeleton — install hardhat when ready to deploy:
-// npm i -D hardhat @nomicfoundation/hardhat-toolbox
-// npx hardhat compile
-//
-// Hedera EVM networks: https://docs.hedera.com/hedera/core-concepts/smart-contracts
+/**
+ * Hardhat config (CommonJS) for OpenMarket.ai — Hedera testnet/mainnet deployment.
+ *
+ * Usage:
+ *   npx hardhat compile
+ *   npx hardhat run scripts/deploy-escrow.ts --network hedera_testnet
+ *   npx hardhat run scripts/deploy-escrow.ts --network hedera_mainnet
+ */
+require("@nomicfoundation/hardhat-toolbox");
 
-/** @type import('hardhat/config').HardhatUserConfig */
+const OPERATOR_ID = process.env.HEDERA_OPERATOR_ID || "";
+const OPERATOR_KEY = process.env.HEDERA_OPERATOR_KEY || "";
+
+/** @type {import('hardhat/config').HardhatUserConfig} */
 module.exports = {
-  solidity: "0.8.20",
-  paths: {
-    sources: "./contracts",
-    artifacts: "./artifacts",
+  solidity: {
+    version: "0.8.20",
+    settings: {
+      optimizer: { enabled: true, runs: 200 },
+    },
   },
   networks: {
-    // hederaTestnet: {
-    //   url: process.env.HEDERA_JSON_RPC_RELAY,
-    //   accounts: process.env.DEPLOYER_KEY ? [process.env.DEPLOYER_KEY] : [],
-    // },
+    hardhat: { chainId: 31337 },
+    hedera_testnet: {
+      url: "https://testnet.hashio.io",
+      accounts: OPERATOR_KEY ? [OPERATOR_KEY] : [],
+      chainId: 296,
+      gas: 8000000,
+      gasPrice: 0,
+    },
+    hedera_mainnet: {
+      url: "https://mainnet.hashio.io",
+      accounts: OPERATOR_KEY ? [OPERATOR_KEY] : [],
+      chainId: 295,
+      gas: 8000000,
+      gasPrice: 0,
+    },
+  },
+  paths: {
+    sources: "./contracts",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts",
   },
 };

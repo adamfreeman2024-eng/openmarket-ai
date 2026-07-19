@@ -13,3 +13,6 @@ dist/
 coverage/
 .turbo/
 tsconfig.tsbuildinfo
+cache/
+artifacts/
+typechain-types/

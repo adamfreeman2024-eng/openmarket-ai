@@ -23,7 +23,10 @@
     "pm2:stop": "pm2 stop openmarket-ai",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
-    "contract:compile": "echo 'Install hardhat to compile: npm i -D hardhat @nomicfoundation/hardhat-toolbox' && exit 0"
+    "contract:compile": "hardhat compile",
+    "contract:test": "hardhat test",
+    "contract:deploy:testnet": "hardhat run scripts/deploy-escrow.ts --network hedera_testnet",
+    "contract:deploy:mainnet": "hardhat run scripts/deploy-escrow.ts --network hedera_mainnet"
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.79.0",
@@ -35,10 +38,12 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "hardhat": "^2.28.6",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^4.1.10"

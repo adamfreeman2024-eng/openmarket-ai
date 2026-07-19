@@ -353,6 +353,11 @@ export async function fulfillOffer(
     "text.reply",
     "agent.answer",
     "llm.complete",
+    "text.translate",
+    "code.review",
+    "text.sentiment",
+    "text.classify",
+    "text.extract",
   ]);
   if (
     process.env.LLM_FULFILL_ENABLED !== "false" &&

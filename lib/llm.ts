@@ -188,6 +188,155 @@ export async function llmFulfill(
     };
   }
 
+  if (capability === "text.translate") {
+    const targetLang = String(input?.targetLang || input?.language || "en");
+    const sourceText = text || String(input?.sourceText || "");
+    if (!sourceText) return { ok: false, error: "MISSING_TEXT" };
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional translator. Translate the user's text to ${targetLang}. Return ONLY the translation. No explanations. No preamble.`,
+        },
+        { role: "user", content: sourceText.slice(0, 12000) },
+      ],
+      maxTokens: 2000,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    return {
+      ok: true,
+      result: {
+        translation: c.text,
+        targetLang,
+        sourceChars: sourceText.length,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
+  if (capability === "code.review") {
+    const code = String(input?.code || input?.text || "");
+    if (!code) return { ok: false, error: "MISSING_CODE" };
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a senior code reviewer on OpenMarket.ai. Review the code for bugs, security issues, performance problems, and best practices. Be specific and actionable. Format: list issues with severity (CRITICAL/HIGH/MEDIUM/LOW) and suggested fixes.",
+        },
+        { role: "user", content: code.slice(0, 12000) },
+      ],
+      maxTokens: 2000,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    return {
+      ok: true,
+      result: {
+        review: c.text,
+        codeChars: code.length,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
+  if (capability === "text.sentiment") {
+    const target = text || String(input?.text || input?.content || "");
+    if (!target) return { ok: false, error: "MISSING_TEXT" };
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are a sentiment analysis service. Analyze the sentiment of the text. Respond ONLY with JSON: {"sentiment":"positive|negative|neutral","confidence":0.0-1.0,"summary":"one sentence"}',
+        },
+        { role: "user", content: target.slice(0, 12000) },
+      ],
+      maxTokens: 300,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    let parsed: unknown = c.text;
+    try {
+      parsed = JSON.parse(c.text);
+    } catch {
+      // keep raw text if not valid JSON
+    }
+    return {
+      ok: true,
+      result: {
+        sentiment: parsed,
+        rawText: c.text,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
+  if (capability === "text.classify") {
+    const target = text || String(input?.text || input?.content || "");
+    const categories = String(input?.categories || input?.labels || "general");
+    if (!target) return { ok: false, error: "MISSING_TEXT" };
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content: `You are a text classification service. Classify the text into one of these categories: ${categories}. Respond ONLY with JSON: {"category":"...","confidence":0.0-1.0}`,
+        },
+        { role: "user", content: target.slice(0, 12000) },
+      ],
+      maxTokens: 300,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    let parsed: unknown = c.text;
+    try {
+      parsed = JSON.parse(c.text);
+    } catch {
+      // keep raw text if not valid JSON
+    }
+    return {
+      ok: true,
+      result: {
+        classification: parsed,
+        rawText: c.text,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
+  if (capability === "text.extract") {
+    const target = text || String(input?.text || input?.content || "");
+    const fields = String(input?.fields || input?.schema || "key information");
+    if (!target) return { ok: false, error: "MISSING_TEXT" };
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content: `You are an information extraction service. Extract the following fields from the text: ${fields}. Respond ONLY with valid JSON. If a field is not present, use null.`,
+        },
+        { role: "user", content: target.slice(0, 12000) },
+      ],
+      maxTokens: 1000,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    let parsed: unknown = c.text;
+    try {
+      parsed = JSON.parse(c.text);
+    } catch {
+      // keep raw text if not valid JSON
+    }
+    return {
+      ok: true,
+      result: {
+        extracted: parsed,
+        rawText: c.text,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
   const c = await chatComplete({
     messages: [
       {
