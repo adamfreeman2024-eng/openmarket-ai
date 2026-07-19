@@ -21,7 +21,7 @@ export const OfferCreateSchema = z.object({
   description: z.string().max(2000).optional(),
   priceAmount: z.number().positive(),
   priceAsset: z.enum(["HBAR", "USDC"]).default("HBAR"),
-  fulfillmentType: z.enum(["webhook", "inline", "manual"]).default("inline"),
+  fulfillmentType: z.enum(["webhook", "inline", "manual", "llm"]).default("inline"),
   webhookUrl: z.string().url().optional(),
   maxSeconds: z.number().int().positive().max(3600).default(60),
   escrow: z.boolean().default(false),
@@ -80,7 +80,7 @@ export type OfferRecord = {
   description?: string;
   priceAmount: number;
   priceAsset: "HBAR" | "USDC";
-  fulfillmentType: "webhook" | "inline" | "manual";
+  fulfillmentType: "webhook" | "inline" | "manual" | "llm";
   webhookUrl?: string;
   maxSeconds: number;
   escrow: boolean;

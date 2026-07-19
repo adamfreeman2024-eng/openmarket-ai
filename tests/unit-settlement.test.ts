@@ -53,8 +53,8 @@ describe("verifyPayment — devFakePay", () => {
     expect(r.mode).toBe("dev_fake");
   });
 
-  it("should reject devFakePay when in production without confirmation", async () => {
-    process.env.NODE_ENV = "production";
+  it("should reject devFakePay when STRICT_SETTLEMENT=true without confirmation", async () => {
+    process.env.STRICT_SETTLEMENT = "true";
     delete process.env.DEV_FAKE_PAYMENT_CONFIRMED;
     const r = await verifyPayment({
       devFakePay: true,
@@ -64,10 +64,11 @@ describe("verifyPayment — devFakePay", () => {
     });
     expect(r.ok).toBe(false);
     expect(r.mode).toBe("security_warning");
+    delete process.env.STRICT_SETTLEMENT;
   });
 
-  it("should accept devFakePay in production with confirmation env var", async () => {
-    process.env.NODE_ENV = "production";
+  it("should accept devFakePay with STRICT_SETTLECTION confirmation env var", async () => {
+    process.env.STRICT_SETTLEMENT = "true";
     process.env.DEV_FAKE_PAYMENT_CONFIRMED = "yes_i_know_what_i_am_doing";
     const r = await verifyPayment({
       devFakePay: true,
@@ -76,7 +77,7 @@ describe("verifyPayment — devFakePay", () => {
       asset: "HBAR",
     });
     expect(r.ok).toBe(true);
-    process.env.NODE_ENV = "test";
+    delete process.env.STRICT_SETTLEMENT;
     delete process.env.DEV_FAKE_PAYMENT_CONFIRMED;
   });
 });

@@ -341,6 +341,17 @@ export const db = {
 /** Seed demo seller + offers; ensure core demo capabilities always present */
 export function ensureSeedCatalog() {
   store();
+
+  // Ensure 6 LLM-powered seed service agents are always available
+  try {
+    const { ensureSeedAgents } = require("./seed-agents") as {
+      ensureSeedAgents: () => void;
+    };
+    ensureSeedAgents();
+  } catch (e) {
+    console.error("[store] seed agents failed", e);
+  }
+
   const hasEcho = db
     .listOffers()
     .some((o) => o.capability === "echo.demo" && o.active);
