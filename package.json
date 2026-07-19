@@ -17,6 +17,8 @@
     "e2e:expire": "tsx scripts/e2e-expire.ts",
     "smoke": "tsx scripts/smoke-local.ts",
     "test:settlement": "tsx scripts/unit-settlement.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop openmarket-ai",
     "docker:up": "docker compose up -d --build",
@@ -38,7 +40,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=20"

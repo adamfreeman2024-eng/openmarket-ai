@@ -2,7 +2,7 @@ services:
   openmarket:
     build: .
     ports:
-      - "3010:3000"
+      - "${OM_PORT:-3010}:3000"
     environment:
       - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-http://localhost:3010}
       - NEXT_PUBLIC_HEDERA_NETWORK=${NEXT_PUBLIC_HEDERA_NETWORK:-testnet}
@@ -10,22 +10,58 @@ services:
       - HEDERA_OPERATOR_KEY=${HEDERA_OPERATOR_KEY:-}
       - PLATFORM_FEE_BPS=${PLATFORM_FEE_BPS:-200}
       - ALLOW_DEV_FAKE_SETTLEMENT=${ALLOW_DEV_FAKE_SETTLEMENT:-true}
+      - STRICT_SETTLEMENT=${STRICT_SETTLEMENT:-false}
       - OM_DATA_DIR=/data
       - USDC_TOKEN_ID=${USDC_TOKEN_ID:-}
+      - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS:-}
+      - TOKENROUTER_API_KEY=${TOKENROUTER_API_KEY:-}
+      - TOKENROUTER_BASE_URL=${TOKENROUTER_BASE_URL:-https://api.tokenrouter.com/v1}
+      - TOKENROUTER_MODEL=${TOKENROUTER_MODEL:-z-ai/glm-5.2-free}
+      - LLM_FULFILL_ENABLED=${LLM_FULFILL_ENABLED:-true}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - OPERATOR_API_KEY=${OPERATOR_API_KEY:-}
     volumes:
       - om_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Optional: use later with DATABASE_URL adapter
-  # postgres:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: openmarket
-  #     POSTGRES_PASSWORD: openmarket
-  #     POSTGRES_DB: openmarket
-  #   volumes:
-  #     - pg_data:/var/lib/postgresql/data
-  #     - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-openmarket}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openmarket}
+      POSTGRES_DB: ${POSTGRES_DB:-openmarket}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docs/schema.sql:/docker-entrypoint-initib.d/01-schema.sql:ro
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openmarket} -d ${POSTGRES_DB:-openmarket}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   om_data:
+  pg_data:

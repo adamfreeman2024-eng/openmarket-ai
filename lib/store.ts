@@ -14,12 +14,34 @@ import type {
 import type { EscrowRecord } from "./store-types";
 import {
   hasDatabaseUrl,
-  pgLoadState,
-  pgSaveState,
-  type PersistShape,
-} from "./pg-state";
+} from "./pg-store";
 
 export type { EscrowRecord } from "./store-types";
+
+// Re-export new relational PG functions for direct use by API routes
+export {
+  hasDatabaseUrl as hasPg,
+  pgPutAgent,
+  pgGetAgent,
+  pgGetAgentByKey,
+  pgListAgents,
+  pgPutOffer,
+  pgGetOffer,
+  pgListOffers,
+  pgPutQuote,
+  pgGetQuote,
+  pgPutOrder,
+  pgGetOrder,
+  pgListOrders,
+  pgPutEscrow,
+  pgGetEscrow,
+  pgGetEscrowByOrder,
+  pgListEscrows,
+  pgIsTxUsed,
+  pgMarkTxUsed,
+  pgAudit,
+  pgListAudit,
+} from "./pg-store";
 
 type StoreShape = {
   agents: Map<string, AgentRecord>;
@@ -30,6 +52,16 @@ type StoreShape = {
   usedTx: Set<string>;
   audit: AuditEvent[];
   escrows: Map<string, EscrowRecord>;
+};
+
+type PersistShape = {
+  agents: AgentRecord[];
+  offers: OfferRecord[];
+  quotes: QuoteRecord[];
+  orders: OrderRecord[];
+  usedTx: string[];
+  audit: AuditEvent[];
+  escrows: EscrowRecord[];
 };
 
 const g = globalThis as unknown as {
@@ -111,10 +143,45 @@ export function persistNow() {
   const tmp = DATA_FILE + ".tmp";
   fs.writeFileSync(tmp, JSON.stringify(payload, null, 2));
   fs.renameSync(tmp, DATA_FILE);
+  // Relational PG dual-write: save each record individually
   if (hasDatabaseUrl()) {
-    void pgSaveState(payload).catch((e) =>
+    void pgPersistRelational(payload).catch((e) =>
       console.error("[store] pg persist failed", e)
     );
+  }
+}
+
+/** Write all state to relational PG tables (dual-write mode) */
+async function pgPersistRelational(state: PersistShape): Promise<void> {
+  const { getPool } = await import("./pg-store");
+  await getPool(); // ensure schema
+  for (const a of state.agents) {
+    const { pgPutAgent } = await import("./pg-store");
+    await pgPutAgent(a);
+  }
+  for (const o of state.offers) {
+    const { pgPutOffer } = await import("./pg-store");
+    await pgPutOffer(o);
+  }
+  for (const q of state.quotes) {
+    const { pgPutQuote } = await import("./pg-store");
+    await pgPutQuote(q);
+  }
+  for (const o of state.orders) {
+    const { pgPutOrder } = await import("./pg-store");
+    await pgPutOrder(o);
+  }
+  for (const e of state.escrows) {
+    const { pgPutEscrow } = await import("./pg-store");
+    await pgPutEscrow(e);
+  }
+  for (const t of state.usedTx) {
+    const { pgMarkTxUsed } = await import("./pg-store");
+    await pgMarkTxUsed(t);
+  }
+  for (const ev of state.audit) {
+    const { pgAudit } = await import("./pg-store");
+    await pgAudit(ev);
   }
 }
 
@@ -124,7 +191,7 @@ function store(): StoreShape {
     // Prefer Postgres snapshot if available (async hydrate once)
     if (hasDatabaseUrl() && !g.__omPgHydrated) {
       g.__omPgHydrated = true;
-      void pgLoadState()
+      void pgLoadFromRelational()
         .then((state) => {
           if (state && (state.agents?.length || state.offers?.length)) {
             g.__omStore = hydrate(state);
@@ -142,6 +209,28 @@ function store(): StoreShape {
     }
   }
   return g.__omStore;
+}
+
+/** Load state from relational PG tables (replaces blob load) */
+async function pgLoadFromRelational(): Promise<PersistShape | null> {
+  const { pgListAgents, pgListOffers, pgListOrders, pgListEscrows, pgListAudit } = await import("./pg-store");
+  const agents = await pgListAgents();
+  if (!agents.length) return null;
+  const offers = await pgListOffers();
+  const orders = await pgListOrders();
+  const escrows = await pgListEscrows();
+  const audit = await pgListAudit(500);
+  // quotes: load from pg if available
+  const quotes: QuoteRecord[] = [];
+  const { getPool } = await import("./pg-store");
+  const p = await getPool();
+  const qr = await p.query(`SELECT payload FROM quotes ORDER BY created_at DESC LIMIT 500`);
+  for (const row of qr.rows) quotes.push(row.payload as QuoteRecord);
+  // usedTx
+  const usedTx: string[] = [];
+  const tr = await p.query(`SELECT transaction_id FROM used_tx`);
+  for (const row of tr.rows) usedTx.push(row.transaction_id as string);
+  return { agents, offers, quotes, orders, usedTx, audit, escrows };
 }
 
 export function newId(prefix: string) {
@@ -245,7 +334,7 @@ export const db = {
     return Array.from(store().escrows.values());
   },
   backend() {
-    return hasDatabaseUrl() ? "file+postgres" : "file";
+    return hasDatabaseUrl() ? "file+postgres-relational" : "file";
   },
 };
 

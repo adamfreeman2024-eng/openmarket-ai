@@ -7,8 +7,22 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: openmarket
+          POSTGRES_PASSWORD: openmarket
+          POSTGRES_DB: openmarket
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,7 +30,25 @@ jobs:
           node-version: "20"
           cache: npm
       - run: npm ci
-      - run: npm run test:settlement
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests (vitest)
+        run: npm run test
+        env:
+          ALLOW_DEV_FAKE_SETTLEMENT: "true"
+      - name: Legacy settlement test
+        run: npm run test:settlement
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
       - run: npm run build
         env:
           ALLOW_DEV_FAKE_SETTLEMENT: "true"
@@ -26,6 +58,7 @@ jobs:
           ALLOW_DEV_FAKE_SETTLEMENT=true \
           NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000 \
           HEDERA_OPERATOR_ID=0.0.1000 \
+          NODE_ENV=development \
           npm run start -- -p 3000 &
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:3000/api/v1/health && break
@@ -35,3 +68,8 @@ jobs:
           BASE_URL=http://127.0.0.1:3000 npm run e2e:escrow
           BASE_URL=http://127.0.0.1:3000 npm run e2e:escrow-lifecycle
           BASE_URL=http://127.0.0.1:3000 npm run e2e:expire
+      - name: Check metrics endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/v1/metrics)
+          if [ "$STATUS" != "200" ]; then echo "Metrics endpoint failed: $STATUS"; exit 1; fi
+          echo "Metrics endpoint OK"
