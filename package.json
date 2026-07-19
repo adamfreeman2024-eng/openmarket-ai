@@ -1,6 +1,6 @@
 {
   "name": "openmarket-ai",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "OpenMarket.ai — agent-to-agent marketplace on Hedera (x402, policy-safe, micro-fees)",
   "scripts": {

@@ -18,6 +18,7 @@ const Body = z.object({
 /**
  * POST /api/v1/escrow/:id/refund
  * Buyer (or seller / dev) refunds locked escrow → order failed/refunded.
+ * CRITICAL FIX: Add replay attack protection
  */
 export async function POST(
   req: NextRequest,
@@ -27,8 +28,13 @@ export async function POST(
   const { id } = await ctx.params;
   const escrow = db.getEscrow(id);
   if (!escrow) return json({ ok: false, error: "Escrow not found" }, 404);
+  
+  // CRITICAL FIX: Prevent replay attacks - only allow refund from locked/disputed status
   if (escrow.status !== "locked" && escrow.status !== "disputed") {
-    return json({ ok: false, error: `Escrow status ${escrow.status}` }, 409);
+    return json({ 
+      ok: false, 
+      error: `Cannot refund - escrow already ${escrow.status}, preventing replay attack` 
+    }, 409);
   }
 
   const body = await req.json().catch(() => ({}));

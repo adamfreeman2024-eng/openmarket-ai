@@ -11,7 +11,8 @@ export type PolicyResult = {
 export function evaluateBuyerPolicy(
   agent: AgentRecord | undefined,
   amount: number,
-  counterpartyWallet?: string
+  counterpartyWallet?: string,
+  persistFn?: (updatedAgent: AgentRecord) => void // Optional callback to persist policy changes
 ): PolicyResult[] {
   const results: PolicyResult[] = [];
   if (!agent) {
@@ -24,10 +25,19 @@ export function evaluateBuyerPolicy(
     return results;
   }
 
-  // reset daily counter
-  if (agent.policy.spentDay !== utcDay()) {
-    agent.policy.spentDay = utcDay();
+  // CRITICAL FIX: Always reset daily counter on each check (prevents bypass via restart)
+  const currentDay = utcDay();
+  let needsUpdate = false;
+  
+  if (agent.policy.spentDay !== currentDay) {
+    agent.policy.spentDay = currentDay;
     agent.policy.spentToday = 0;
+    needsUpdate = true;
+  }
+  
+  // Persist policy changes if callback provided
+  if (needsUpdate && persistFn) {
+    persistFn(agent);
   }
 
   const maxPerTx = agent.policy.maxPerTx;

@@ -4,7 +4,7 @@ import { ensureSeedCatalog, db, newId, audit, utcDay } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
 import {
   verifyPayment,
-  fulfillInline,
+  fulfillOffer,
   createEscrowForOrder,
 } from "@/lib/settlement";
 import { buildOnChainDepositPlan, isEscrowContractLive } from "@/lib/onchain-escrow";
@@ -57,7 +57,11 @@ export async function POST(req: NextRequest) {
   const policyResults = evaluateBuyerPolicy(
     buyer,
     totalAmount,
-    seller?.walletAccountId
+    seller?.walletAccountId,
+    (updatedAgent) => {
+      // Persist updated policy (spentDay reset) to store
+      db.putAgent(updatedAgent);
+    }
   );
   if (!allAllowed(policyResults)) {
     return json({ ok: false, error: "POLICY_BLOCKED", policyResults }, 403);
@@ -188,18 +192,11 @@ export async function POST(req: NextRequest) {
   }
 
   const t0 = Date.now();
-  let result: unknown;
-  if (offer.fulfillmentType === "webhook" && offer.webhookUrl) {
-    const wr = await fetch(offer.webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId: order.id, offerId: offer.id, input: quote.input }),
-      signal: AbortSignal.timeout((offer.maxSeconds || 30) * 1000),
-    });
-    result = await wr.json().catch(() => ({ status: wr.status }));
-  } else {
-    result = fulfillInline(offer.capability, quote.input);
-  }
+  const result = await fulfillOffer(
+    offer,
+    quote.input as Record<string, unknown> | undefined,
+    { orderId: order.id, offerId: offer.id }
+  );
   const latencyMs = Date.now() - t0;
   order.status = "completed";
   order.result = result;

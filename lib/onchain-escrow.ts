@@ -9,12 +9,17 @@ export const ESCROW_ABI = [
   "function deposit(bytes32 orderId, address seller) payable",
   "function release(bytes32 orderId)",
   "function refund(bytes32 orderId)",
-  "function deals(bytes32) view returns (address buyer, address seller, uint256 amount, uint256 createdAt, uint256 unlockAt, bool released, bool refunded, bool exists)",
+  "function deals(bytes32) view returns (address buyer, address seller, uint256 amount, uint256 createdAt, uint256 unlockAt, uint8 state)",
   "function platformFeeBps() view returns (uint256)",
   "function operator() view returns (address)",
+  "function paused() view returns (bool)",
+  "function pause()",
+  "function unpause()",
   "event Deposited(bytes32 indexed orderId, address buyer, address seller, uint256 amount)",
   "event Released(bytes32 indexed orderId, address seller, uint256 sellerAmount, uint256 fee)",
   "event Refunded(bytes32 indexed orderId, address buyer, uint256 amount)",
+  "event Paused(address by)",
+  "event Unpaused(address by)",
 ] as const;
 
 export function isEscrowContractLive() {

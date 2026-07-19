@@ -48,7 +48,34 @@ function creditToPayee(
 }
 
 function collectHbarCredits(tx: Record<string, unknown>): Transfer[] {
-  const list = (tx.transfers as Transfer[]) || [];
+  const list: Transfer[] = [];
+  
+  // Shape A: Direct transfers array (common format)
+  if (Array.isArray(tx.transfers)) {
+    for (const tr of tx.transfers as Transfer[]) {
+      list.push(tr);
+    }
+  }
+  
+  // Shape B: transaction_transfers (alternate Hedera Mirror API version)
+  if (Array.isArray(tx.transaction_transfers)) {
+    for (const tr of tx.transaction_transfers as Transfer[]) {
+      list.push(tr);
+    }
+  }
+  
+  // Shape C: token_transfers with nested account info (rare case)
+  if (Array.isArray(tx.token_transfers)) {
+    const tokenTransfers = tx.token_transfers as Array<{ transfers?: Transfer[] }>;
+    for (const tt of tokenTransfers) {
+      if (Array.isArray(tt.transfers)) {
+        for (const tr of tt.transfers as Transfer[]) {
+          list.push(tr);
+        }
+      }
+    }
+  }
+  
   return list;
 }
 
@@ -57,24 +84,40 @@ function collectTokenCredits(
   tokenId: string
 ): Transfer[] {
   const out: Transfer[] = [];
-  // Shape A: flat token_transfers [{token_id, account, amount}]
-  const flat = tx.token_transfers as Transfer[] | undefined;
-  if (Array.isArray(flat)) {
-    for (const tr of flat) {
+  
+  // Shape A: Flat token_transfers [{token_id, account, amount}]
+  const flatTransfers = (tx.token_transfers as Transfer[]) || [];
+  if (Array.isArray(flatTransfers)) {
+    for (const tr of flatTransfers) {
       if (tr.token_id === tokenId) out.push(tr);
     }
   }
-  // Shape B: nft_transfers / tokens nested (some mirror versions)
-  const nested = tx.tokens as
-    | Array<{ token_id?: string; transfers?: Transfer[] }>
-    | undefined;
-  if (Array.isArray(nested)) {
-    for (const t of nested) {
+  
+  // Shape B: Nested format - tokens[].transfers
+  const nestedTokens = (tx.tokens as Array<{ token_id?: string; transfers?: Transfer[] }> | undefined) || [];
+  if (Array.isArray(nestedTokens)) {
+    for (const t of nestedTokens) {
       if (t.token_id === tokenId && Array.isArray(t.transfers)) {
         for (const tr of t.transfers) out.push({ ...tr, token_id: tokenId });
       }
     }
   }
+  
+  // Shape C: Alternate format - transactions[].token_transfers[].transfers
+  const transactions = (tx.transactions as Array<{ token_transfers?: Array<{ transfers?: Transfer[] }> }> | undefined) || [];
+  if (Array.isArray(transactions)) {
+    for (const txn of transactions) {
+      const tokenTransfers = txn.token_transfers || [];
+      if (Array.isArray(tokenTransfers)) {
+        for (const tt of tokenTransfers) {
+          if (tt.transfers && Array.isArray(tt.transfers)) {
+            for (const tr of tt.transfers) out.push({ ...tr, token_id: tokenId });
+          }
+        }
+      }
+    }
+  }
+  
   return out;
 }
 
@@ -113,11 +156,34 @@ export async function verifyPayment(opts: {
   creditedBase?: number;
   details?: Record<string, unknown>;
 }> {
-  if (opts.devFakePay) {
-    if (!ALLOW_DEV_FAKE_SETTLEMENT) {
-      return { ok: false, error: "devFakePay disabled", mode: "rejected" };
+  // CRITICAL SECURITY: Never allow fake payments in production
+  if (opts.devFakePay && !ALLOW_DEV_FAKE_SETTLEMENT) {
+    return { 
+      ok: false, 
+      error: "devFakePay is disabled - set ALLOW_DEV_FAKE_SETTLEMENT=true for local testing only",
+      mode: "rejected" 
+    };
+  }
+  
+  // CRITICAL: In production, devFakePay requires explicit confirmation env var
+  // This prevents accidental "free" payments in production environments
+  if (opts.devFakePay && process.env.NODE_ENV === "production") {
+    const confirmEnv = process.env.DEV_FAKE_PAYMENT_CONFIRMED;
+    if (confirmEnv !== "yes_i_know_what_i_am_doing") {
+      return { 
+        ok: false, 
+        error: "Security: devFakePay in production requires DEV_FAKE_PAYMENT_CONFIRMED=yes_i_know_what_i_am_doing env var",
+        mode: "security_warning" 
+      };
     }
-    return { ok: true, mode: "dev_fake" };
+  }
+  
+  if (opts.devFakePay) {
+    return { 
+      ok: true, 
+      mode: "dev_fake",
+      details: { note: "⚠️ DEVELOPMENT MODE ONLY - Do not use in production" }
+    };
   }
 
   if (!opts.transactionId) {
@@ -239,7 +305,7 @@ export function fulfillInline(
   if (capability === "text.summarize") {
     const text = String(input?.text || input?.content || "");
     const summary = text.length <= 120 ? text : text.slice(0, 117) + "...";
-    return { summary, chars: text.length };
+    return { summary, chars: text.length, mode: "truncate" };
   }
   if (capability === "delivery.demo") {
     return {
@@ -253,6 +319,65 @@ export function fulfillInline(
     message: "Inline fulfill stub — connect seller webhook for real work",
     input: input ?? {},
   };
+}
+
+/**
+ * Prefer webhook → LLM (tokenrouter) for NLP caps → inline stub.
+ */
+export async function fulfillOffer(
+  offer: {
+    capability: string;
+    fulfillmentType?: string;
+    webhookUrl?: string;
+    maxSeconds?: number;
+  },
+  input?: Record<string, unknown>,
+  meta?: { orderId?: string; offerId?: string }
+): Promise<unknown> {
+  if (offer.fulfillmentType === "webhook" && offer.webhookUrl) {
+    const wr = await fetch(offer.webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId: meta?.orderId,
+        offerId: meta?.offerId,
+        input,
+      }),
+      signal: AbortSignal.timeout((offer.maxSeconds || 30) * 1000),
+    });
+    return await wr.json().catch(() => ({ status: wr.status }));
+  }
+
+  const llmCaps = new Set([
+    "text.summarize",
+    "text.reply",
+    "agent.answer",
+    "llm.complete",
+  ]);
+  if (
+    process.env.LLM_FULFILL_ENABLED !== "false" &&
+    (llmCaps.has(offer.capability) || offer.fulfillmentType === "llm")
+  ) {
+    try {
+      const { llmFulfill } = await import("./llm");
+      const r = await llmFulfill(offer.capability, input);
+      if (r.ok) return r.result;
+      // fall through to inline with note
+      const inline = fulfillInline(offer.capability, input);
+      return {
+        ...(typeof inline === "object" && inline ? inline : { inline }),
+        llmError: !r.ok ? r.error : "unknown",
+      };
+    } catch (e) {
+      const inline = fulfillInline(offer.capability, input);
+      return {
+        ...(typeof inline === "object" && inline ? inline : { inline }),
+        llmError: e instanceof Error ? e.message : "llm_import_failed",
+      };
+    }
+  }
+
+  return fulfillInline(offer.capability, input);
 }
 
 export function createEscrowForOrder(opts: {

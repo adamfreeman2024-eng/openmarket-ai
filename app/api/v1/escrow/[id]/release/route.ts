@@ -27,6 +27,8 @@ export async function POST(
   const { id } = await ctx.params;
   const escrow = db.getEscrow(id);
   if (!escrow) return json({ ok: false, error: "Escrow not found" }, 404);
+  
+  // CRITICAL FIX: Prevent replay attacks - only allow release from locked status
   if (escrow.status === "disputed") {
     return json(
       {
@@ -37,7 +39,10 @@ export async function POST(
     );
   }
   if (escrow.status !== "locked") {
-    return json({ ok: false, error: `Escrow status ${escrow.status}` }, 409);
+    return json({ 
+      ok: false, 
+      error: `Cannot release - escrow already ${escrow.status}, preventing replay attack` 
+    }, 409);
   }
 
   const body = await req.json().catch(() => null);

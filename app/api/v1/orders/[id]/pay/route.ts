@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { OrderPaySchema } from "@/lib/types";
 import { db, audit, ensureSeedCatalog, utcDay } from "@/lib/store";
 import { json, options } from "@/lib/http";
-import { verifyPayment, fulfillInline, createEscrowForOrder } from "@/lib/settlement";
+import { verifyPayment, fulfillOffer, createEscrowForOrder } from "@/lib/settlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +65,6 @@ export async function POST(
   const t0 = Date.now();
 
   const offer = db.getOffer(order.offerId);
-  let result: unknown;
   try {
     // Escrow path: payment locks funds until proof/release
     if (offer?.escrow) {
@@ -106,21 +105,11 @@ export async function POST(
       });
     }
 
-    if (offer?.fulfillmentType === "webhook" && offer.webhookUrl) {
-      const wr = await fetch(offer.webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: order.id,
-          offerId: offer.id,
-          input: quote.input,
-        }),
-        signal: AbortSignal.timeout((offer.maxSeconds || 30) * 1000),
-      });
-      result = await wr.json().catch(() => ({ status: wr.status }));
-    } else {
-      result = fulfillInline(offer?.capability || "unknown", quote.input);
-    }
+    const result = await fulfillOffer(
+      offer || { capability: "unknown" },
+      quote.input as Record<string, unknown> | undefined,
+      { orderId: order.id, offerId: offer?.id }
+    );
     const latencyMs = Date.now() - t0;
     order.status = "completed";
     order.result = result;

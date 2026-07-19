@@ -7,6 +7,7 @@ import {
   ESCROW_CONTRACT_ADDRESS,
 } from "@/lib/config";
 import { ensureSeedCatalog, db } from "@/lib/store";
+import { llmMeta } from "@/lib/llm";
 import * as path from "path";
 
 export const runtime = "nodejs";
@@ -20,6 +21,7 @@ export function OPTIONS() {
 export async function GET() {
   ensureSeedCatalog();
   const card = marketCard();
+  const llm = llmMeta();
   return json({
     ok: true,
     status: "healthy",
@@ -35,6 +37,9 @@ export async function GET() {
       devFakeSettlement: ALLOW_DEV_FAKE_SETTLEMENT,
       usdcLive: Boolean(USDC_TOKEN_ID),
       escrowContractLive: Boolean(ESCROW_CONTRACT_ADDRESS),
+      llmConfigured: llm.configured,
+      llmFulfillEnabled: llm.enabled,
+      llmModel: llm.model,
     },
     dataDir: process.env.OM_DATA_DIR || path.resolve(process.cwd(), "data"),
     storeBackend: db.backend(),
