@@ -1,11 +1,14 @@
 import type { AgentRecord, OfferRecord } from "./types";
 import { PLATFORM_FEE_BPS } from "./config";
+import type { EscrowRecord } from "./store-types";
+import { computeReputation } from "./reputation";
 
-/** Agent-oriented ranking — higher is better */
+/** Agent-oriented ranking — higher is better.
+ *  Now includes reputation boost from badges. */
 export function rankOffer(
   offer: OfferRecord,
   seller: AgentRecord | undefined,
-  opts?: { maxPrice?: number; capability?: string }
+  opts?: { maxPrice?: number; capability?: string; escrows?: EscrowRecord[]; orderCount?: number }
 ): number {
   const sales = seller?.stats.sales ?? 0;
   const success = seller?.stats.success ?? 0;
@@ -25,6 +28,14 @@ export function rankOffer(
   if (opts?.capability && offer.capability === opts.capability) score += 0.2;
   if (opts?.maxPrice != null && offer.priceAmount > opts.maxPrice) score -= 1;
   if (!offer.active) score -= 10;
+
+  // Reputation boost: add badge boost as percentage of base score
+  if (seller && opts?.escrows) {
+    const rep = computeReputation(seller, opts.escrows, opts.orderCount ?? 0);
+    // Boost: up to +50% of base score from badges
+    score *= 1 + rep.rankingBoost / 100;
+  }
+
   return score;
 }
 
@@ -37,6 +48,8 @@ export function searchOffers(
     maxPrice?: number;
     asset?: string;
     limit?: number;
+    escrows?: EscrowRecord[];
+    ordersByAgent?: Map<string, number>;
   }
 ) {
   const text = (q.q || "").toLowerCase().trim();
@@ -62,14 +75,20 @@ export function searchOffers(
     );
   }
   const scored = list
-    .map((o) => ({
-      offer: o,
-      score: rankOffer(o, agents.get(o.agentId), {
-        maxPrice: q.maxPrice,
-        capability: q.capability,
-      }),
-      seller: agents.get(o.agentId),
-    }))
+    .map((o) => {
+      const seller = agents.get(o.agentId);
+      const orderCount = q.ordersByAgent?.get(o.agentId) ?? 0;
+      return {
+        offer: o,
+        score: rankOffer(o, seller, {
+          maxPrice: q.maxPrice,
+          capability: q.capability,
+          escrows: q.escrows,
+          orderCount,
+        }),
+        seller,
+      };
+    })
     .sort((a, b) => b.score - a.score);
   return scored.slice(0, q.limit ?? 20);
 }
