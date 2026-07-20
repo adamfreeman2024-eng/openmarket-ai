@@ -1,9 +1,14 @@
 /**
  * Unit tests for policy evaluation — spend limits, allowlists, daily reset.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { evaluateBuyerPolicy, allAllowed } from "../lib/policy";
 import type { AgentRecord } from "../lib/types";
+
+// Mock utcDay to return a fixed date for deterministic tests
+vi.mock("../lib/store", () => ({
+  utcDay: () => "2026-07-19",
+}));
 
 function mockAgent(overrides: Partial<AgentRecord> = {}): AgentRecord {
   return {
@@ -61,7 +66,7 @@ describe("evaluateBuyerPolicy — DailySpendLimit", () => {
     const agent = mockAgent({
       policy: {
         dailySpendLimit: 100,
-        maxPerTx: 10,
+        maxPerTx: 100, // Set high so MaxPerTx doesn't block first
         allowedCounterparties: [],
         spentToday: 95,
         spentDay: "2026-07-19",

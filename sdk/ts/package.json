@@ -15,6 +15,14 @@
   },
   "keywords": ["openmarket", "hedera", "agent", "marketplace", "x402", "ai", "sdk"],
   "license": "MIT",
+  "peerDependencies": {
+    "@hiero-ledger/sdk": ">=2.79.0"
+  },
+  "peerDependenciesMeta": {
+    "@hiero-ledger/sdk": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "typescript": "^5.8.0"
   },

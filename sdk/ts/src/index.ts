@@ -24,6 +24,26 @@ export interface OpenMarketConfig {
   baseUrl?: string;
   /** Request timeout in ms. Default: 30000 */
   timeout?: number;
+  /**
+   * Wallet configuration for automatic payments.
+   * When provided, SDK handles HBAR transfers automatically.
+   * Agent doesn't need to know about Hedera or blockchain.
+   */
+  wallet?: WalletConfig;
+}
+
+/**
+ * Wallet configuration — abstracts away Hedera/HBAR.
+ * Agent developer provides wallet credentials once;
+ * SDK handles all payments automatically.
+ */
+export interface WalletConfig {
+  /** Hedera account ID (e.g., "0.0.1234") */
+  accountId: string;
+  /** Hedera private key (DER-encoded ECDSA or ED25519) */
+  privateKey: string;
+  /** Network: testnet or mainnet. Default: testnet */
+  network?: "testnet" | "mainnet";
 }
 
 /** Agent registration data */
@@ -102,11 +122,19 @@ export class OpenMarket {
   private baseUrl: string;
   private apiKey: string | undefined;
   private timeout: number;
+  private wallet: WalletConfig | undefined;
 
   constructor(config: OpenMarketConfig = {}) {
     this.baseUrl = (config.baseUrl || "http://localhost:3000").replace(/\/$/, "");
     this.apiKey = config.apiKey || process.env.OPENMARKET_API_KEY;
     this.timeout = config.timeout ?? 30000;
+    this.wallet = config.wallet || (process.env.HEDERA_ACCOUNT_ID && process.env.HEDERA_PRIVATE_KEY
+      ? {
+          accountId: process.env.HEDERA_ACCOUNT_ID,
+          privateKey: process.env.HEDERA_PRIVATE_KEY,
+          network: (process.env.HEDERA_NETWORK as "testnet" | "mainnet") || "testnet",
+        }
+      : undefined);
   }
 
   /** Internal fetch wrapper with auth + timeout */
@@ -212,17 +240,19 @@ export class OpenMarket {
 
   /**
    * One-shot buy: quote → order → pay → fulfill
-   * 
-   * @example With devFakePay (testing only)
+   *
+   * If wallet is configured, SDK handles payment automatically.
+   * Agent just gets the result — no blockchain knowledge needed.
+   *
+   * @example Auto-pay (wallet configured in constructor)
    * ```typescript
-   * const result = await market.buy("off_xxx", { text: "Hello" }, { devFakePay: true });
+   * const result = await market.buy("off_xxx", { text: "Hello", targetLang: "hy" });
    * ```
-   * 
-   * @example With real Hedera payment
+   *
+   * @example Manual payment (no wallet)
    * ```typescript
-   * // 1. First call without transactionId → get 402 with payment instructions
-   * // 2. Pay HBAR to payTo address with memo
-   * // 3. Call again with transactionId
+   * // First call → get 402 with payment instructions
+   * // Pay manually, then call with transactionId
    * const result = await market.buy("off_xxx", { text: "Hello" }, { transactionId: "0.0.1234@..." });
    * ```
    */
@@ -247,15 +277,74 @@ export class OpenMarket {
         body: JSON.stringify(body),
       });
     } catch (e) {
-      // 402 = payment required — return payment instructions
+      // 402 = payment required — handle automatically if wallet configured
       if (e instanceof OpenMarketError && e.status === 402) {
-        return e.data as {
+        const paymentData = e.data as {
+          ok: boolean;
+          order: Record<string, unknown>;
+          payment: { amount: number; asset: string; payTo: string; memo: string };
+          orderId: string;
+        };
+
+        // If wallet is configured, auto-pay
+        if (this.wallet && !opts.devFakePay && !opts.transactionId) {
+          const txId = await this.executePayment(paymentData.payment);
+          // Retry buy with transaction ID
+          return this.buy(offerId, input, { transactionId: txId });
+        }
+
+        // No wallet — return payment instructions to agent
+        return paymentData as {
           ok: boolean;
           order: Record<string, unknown>;
           payment: { amount: number; asset: string; payTo: string; memo: string };
         };
       }
       throw e;
+    }
+  }
+
+  /**
+   * Execute HBAR payment via Hedera SDK.
+   * Internal method — agent never calls this directly.
+   * Agent doesn't need to know about Hedera, HBAR, or blockchain.
+   */
+  private async executePayment(payment: {
+    amount: number;
+    asset: string;
+    payTo: string;
+    memo: string;
+  }): Promise<string> {
+    if (!this.wallet) {
+      throw new OpenMarketError("No wallet configured", 402);
+    }
+
+    // Dynamic import — only loaded if wallet is used
+    const { Client, AccountId, PrivateKey, TransferTransaction, Hbar } =
+      await import("@hiero-ledger/sdk");
+
+    const network = this.wallet.network || "testnet";
+    const client = Client.forName(network).setOperator(
+      AccountId.fromString(this.wallet.accountId),
+      PrivateKey.fromStringDer(this.wallet.privateKey)
+    );
+
+    try {
+      const amount = new Hbar(payment.amount);
+      const tx = new TransferTransaction()
+        .addHbarTransfer(
+          AccountId.fromString(this.wallet.accountId),
+          amount.negated()
+        )
+        .addHbarTransfer(AccountId.fromString(payment.payTo), amount)
+        .setTransactionMemo(payment.memo);
+
+      const response = await tx.execute(client);
+      await response.getReceipt(client);
+
+      return response.transactionId.toString();
+    } finally {
+      client.close();
     }
   }
 
