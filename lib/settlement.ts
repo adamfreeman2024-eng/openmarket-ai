@@ -238,24 +238,17 @@ export async function verifyPayment(opts: {
       minBase
     );
     if (!check.ok) {
-      if (STRICT_SETTLEMENT) {
-        return {
-          ok: false,
-          error: check.reason || "USDC transfer not verified",
-          mode: "usdc_strict_fail",
-          details: {
-            tokenId: USDC_TOKEN_ID,
-            payTo: opts.expectedPayTo,
-            minBase,
-            credited: check.credited,
-            transfers: tokenTransfers.slice(0, 20),
-          },
-        };
-      }
       return {
-        ok: true,
-        mode: `mirror_${NETWORK}_usdc_soft`,
-        creditedBase: check.credited,
+        ok: false,
+        error: check.reason || "USDC transfer not verified",
+        mode: "usdc_strict_fail",
+        details: {
+          tokenId: USDC_TOKEN_ID,
+          payTo: opts.expectedPayTo,
+          minBase,
+          credited: check.credited,
+          transfers: tokenTransfers.slice(0, 20),
+        },
       };
     }
     return {
@@ -269,24 +262,17 @@ export async function verifyPayment(opts: {
   const hbarTransfers = collectHbarCredits(t);
   const check = creditToPayee(hbarTransfers, opts.expectedPayTo, minBase);
   if (!check.ok) {
-    if (STRICT_SETTLEMENT) {
-      return {
-        ok: false,
-        error: check.reason || "HBAR transfer not verified",
-        mode: "hbar_strict_fail",
-        details: {
-          payTo: opts.expectedPayTo,
-          minBase,
-          credited: check.credited,
-          transfers: hbarTransfers.slice(0, 20),
-        },
-      };
-    }
-    // Soft: success on mirror but no payee match (legacy demo)
+    // Always strict: payment must be verified
     return {
-      ok: true,
-      mode: `mirror_${NETWORK}_hbar_soft`,
-      creditedBase: check.credited,
+      ok: false,
+      error: check.reason || "HBAR transfer not verified",
+      mode: "hbar_strict_fail",
+      details: {
+        payTo: opts.expectedPayTo,
+        minBase,
+        credited: check.credited,
+        transfers: hbarTransfers.slice(0, 20),
+      },
     };
   }
   return {

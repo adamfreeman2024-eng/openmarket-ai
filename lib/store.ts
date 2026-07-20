@@ -137,6 +137,19 @@ function schedulePersist() {
   }, 50);
 }
 
+/** Synchronous persist — use for critical operations (payments, escrow) */
+function persistSync() {
+  try {
+    const payload = snapshot();
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    const tmp = DATA_FILE + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(payload, null, 2));
+    fs.renameSync(tmp, DATA_FILE);
+  } catch (e) {
+    console.error("[store] sync persist failed", e);
+  }
+}
+
 export function persistNow() {
   const payload = snapshot();
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -313,7 +326,7 @@ export const db = {
     };
     store().usedTx.add(tx);
     store().usedTx.add(normalizeTxId(tx));
-    schedulePersist();
+    persistSync(); // Critical: payment replay protection must persist immediately
   },
   listAudit(limit = 50) {
     return store().audit.slice(0, limit);

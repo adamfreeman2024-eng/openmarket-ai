@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
 import { z } from "zod";
+import { ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
+import { onChainRelease, onChainRefund, hashScanUrl } from "@/lib/onchain-escrow-live";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +60,20 @@ export async function POST(
     escrow.proof = parsed.data.proof || "operator_resolve";
     escrow.updatedAt = new Date().toISOString();
     db.putEscrow(escrow);
+
+    // On-chain release if contract is live
+    let onChainResult: { txHash?: string; hashScanUrl?: string; error?: string } | undefined;
+    if (ESCROW_CONTRACT_ADDRESS) {
+      const onChain = await onChainRelease(escrow.orderId);
+      if (onChain.ok && onChain.txHash) {
+        onChainResult = { txHash: onChain.txHash, hashScanUrl: hashScanUrl(onChain.txHash) };
+        escrow.onChainRef = onChain.txHash;
+        db.putEscrow(escrow);
+      } else {
+        onChainResult = { error: onChain.error };
+      }
+    }
+
     if (order) {
       order.status = "completed";
       order.result = {
@@ -65,6 +81,7 @@ export async function POST(
         released: true,
         proof: escrow.proof,
         resolvedBy: "operator",
+        onChain: onChainResult,
       };
       order.completedAt = new Date().toISOString();
       db.putOrder(order);
@@ -75,8 +92,8 @@ export async function POST(
         db.putAgent(seller);
       }
     }
-    audit("escrow.operator_release", { escrowId: id });
-    return json({ ok: true, escrow, order });
+    audit("escrow.operator_release", { escrowId: id, onChain: onChainResult });
+    return json({ ok: true, escrow, order, onChain: onChainResult });
   }
 
   // refund
@@ -84,6 +101,20 @@ export async function POST(
   escrow.reason = parsed.data.reason || "operator_refund";
   escrow.updatedAt = new Date().toISOString();
   db.putEscrow(escrow);
+
+  // On-chain refund if contract is live
+  let onChainResult: { txHash?: string; hashScanUrl?: string; error?: string } | undefined;
+  if (ESCROW_CONTRACT_ADDRESS) {
+    const onChain = await onChainRefund(escrow.orderId);
+    if (onChain.ok && onChain.txHash) {
+      onChainResult = { txHash: onChain.txHash, hashScanUrl: hashScanUrl(onChain.txHash) };
+      escrow.onChainRef = onChain.txHash;
+      db.putEscrow(escrow);
+    } else {
+      onChainResult = { error: onChain.error };
+    }
+  }
+
   if (order) {
     order.status = "failed";
     order.error = `operator_refund:${escrow.reason}`;
@@ -92,10 +123,11 @@ export async function POST(
       refunded: true,
       reason: escrow.reason,
       resolvedBy: "operator",
+      onChain: onChainResult,
     };
     order.completedAt = new Date().toISOString();
     db.putOrder(order);
   }
-  audit("escrow.operator_refund", { escrowId: id });
-  return json({ ok: true, escrow, order });
+  audit("escrow.operator_refund", { escrowId: id, onChain: onChainResult });
+  return json({ ok: true, escrow, order, onChain: onChainResult });
 }
