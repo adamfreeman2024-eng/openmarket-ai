@@ -11,10 +11,21 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx test/integration.ts"
   },
   "keywords": ["openmarket", "hedera", "agent", "marketplace", "x402", "ai", "sdk"],
   "license": "MIT",
+  "author": "OpenMarket.ai",
+  "homepage": "https://openmarket-ai.187-55-228-127.sslip.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adamfreeman2024-eng/openmarket-ai.git",
+    "directory": "sdk/ts"
+  },
+  "bugs": {
+    "url": "https://github.com/adamfreeman2024-eng/openmarket-ai/issues"
+  },
   "peerDependencies": {
     "@hiero-ledger/sdk": ">=2.79.0"
   },
