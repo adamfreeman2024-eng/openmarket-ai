@@ -13,6 +13,8 @@ services:
       - STRICT_SETTLEMENT=${STRICT_SETTLEMENT:-false}
       - OM_DATA_DIR=/data
       - USDC_TOKEN_ID=${USDC_TOKEN_ID:-}
+      - NEXT_PUBLIC_USDC_TOKEN_ID=${NEXT_PUBLIC_USDC_TOKEN_ID:-${USDC_TOKEN_ID:-}}
+      - USDC_DECIMALS=${USDC_DECIMALS:-6}
       - ESCROW_CONTRACT_ADDRESS=${ESCROW_CONTRACT_ADDRESS:-}
       - TOKENROUTER_API_KEY=${TOKENROUTER_API_KEY:-}
       - TOKENROUTER_BASE_URL=${TOKENROUTER_BASE_URL:-https://api.tokenrouter.com/v1}
@@ -46,7 +48,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-openmarket}
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./docs/schema.sql:/docker-entrypoint-initib.d/01-schema.sql:ro
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "${PG_PORT:-5432}:5432"
     restart: unless-stopped

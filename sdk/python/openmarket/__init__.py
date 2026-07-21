@@ -223,8 +223,8 @@ class OpenMarket:
         return self._request(f"/api/v1/agents/{agent_id}")
 
     def me(self) -> dict:
-        """Get current agent (from API key)."""
-        return self._request("/api/v1/agents/me")
+        """Get current agent self-service dashboard (from API key)."""
+        return self._request("/api/v1/me")
 
     def list_agents(self) -> dict:
         """List all agents."""

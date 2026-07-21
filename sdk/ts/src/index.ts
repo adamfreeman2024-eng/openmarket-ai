@@ -377,7 +377,7 @@ export class OpenMarket {
     ok: boolean;
     agent: Record<string, unknown>;
   }> {
-    return this.request("/api/v1/agents/me");
+    return this.request("/api/v1/me");
   }
 
   /** List all agents */

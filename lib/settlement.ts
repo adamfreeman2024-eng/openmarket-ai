@@ -322,17 +322,25 @@ export async function fulfillOffer(
   meta?: { orderId?: string; offerId?: string }
 ): Promise<unknown> {
   if (offer.fulfillmentType === "webhook" && offer.webhookUrl) {
-    const wr = await fetch(offer.webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        orderId: meta?.orderId,
-        offerId: meta?.offerId,
-        input,
-      }),
-      signal: AbortSignal.timeout((offer.maxSeconds || 30) * 1000),
+    const { callWebhookForFulfillment } = await import("./webhook-fulfillment");
+    const webhookResult = await callWebhookForFulfillment({
+      webhookUrl: offer.webhookUrl,
+      orderId: meta?.orderId || "",
+      offerId: meta?.offerId || "",
+      capability: offer.capability,
+      input,
+      maxSeconds: offer.maxSeconds,
     });
-    return await wr.json().catch(() => ({ status: wr.status }));
+    if (webhookResult.ok) {
+      return webhookResult.result;
+    }
+    // Fall through to LLM/inline if webhook fails
+    const inline = fulfillInline(offer.capability, input);
+    return {
+      ...(typeof inline === "object" && inline ? inline : { inline }),
+      webhookError: webhookResult.error,
+      webhookLatencyMs: webhookResult.latencyMs,
+    };
   }
 
   const llmCaps = new Set([

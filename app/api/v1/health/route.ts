@@ -35,6 +35,7 @@ export async function GET() {
     escrows: db.listEscrows().length,
     flags: {
       devFakeSettlement: ALLOW_DEV_FAKE_SETTLEMENT,
+      usdcTokenId: USDC_TOKEN_ID || null,
       usdcLive: Boolean(USDC_TOKEN_ID),
       escrowContractLive: Boolean(ESCROW_CONTRACT_ADDRESS),
       llmConfigured: llm.configured,
