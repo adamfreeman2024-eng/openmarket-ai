@@ -1,6 +1,6 @@
 {
   "name": "openmarket-ai",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "private": true,
   "description": "OpenMarket.ai — agent-to-agent marketplace on Hedera (x402, policy-safe, micro-fees)",
   "scripts": {
@@ -23,6 +23,7 @@
     "pm2:stop": "pm2 stop openmarket-ai",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
+    "backup": "bash scripts/backup.sh",
     "contract:compile": "hardhat compile",
     "contract:test": "hardhat test",
     "contract:deploy:testnet": "hardhat run scripts/deploy-escrow.ts --network hedera_testnet",

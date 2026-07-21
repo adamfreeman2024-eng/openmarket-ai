@@ -1,8 +1,16 @@
 import { NextRequest } from "next/server";
 import { OfferCreateSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
-import { json, options, requireAgent, isResponse } from "@/lib/http";
+import {
+  json,
+  options,
+  requireAgent,
+  isResponse,
+  readJsonBody,
+  rateLimitResponse,
+} from "@/lib/http";
 import { assertAssetLive } from "@/lib/assets";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +28,14 @@ export async function GET() {
 /** POST /api/v1/offers — seller creates listing (auth) */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
+  const rl = rateLimit(`offer:${clientKey(req)}`, 60, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
+
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
-  const body = await req.json().catch(() => null);
-  const parsed = OfferCreateSchema.safeParse(body);
+  const bodyRes = await readJsonBody(req);
+  if (!bodyRes.ok) return bodyRes.response;
+  const parsed = OfferCreateSchema.safeParse(bodyRes.data);
   if (!parsed.success) {
     return json(
       { ok: false, error: "Invalid body", details: parsed.error.flatten() },

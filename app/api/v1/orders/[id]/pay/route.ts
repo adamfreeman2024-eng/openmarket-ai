@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { OrderPaySchema } from "@/lib/types";
 import { db, audit, ensureSeedCatalog, utcDay } from "@/lib/store";
-import { json, options } from "@/lib/http";
+import { json, options, readJsonBody, rateLimitResponse } from "@/lib/http";
 import { verifyPayment, fulfillOffer, createEscrowForOrder } from "@/lib/settlement";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> }
 ) {
   ensureSeedCatalog();
+  const rl = rateLimit(`pay:${clientKey(req)}`, 60, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   const { id } = await ctx.params;
   const order = db.getOrder(id);
   if (!order) return json({ ok: false, error: "Not found" }, 404);
@@ -31,8 +34,9 @@ export async function POST(
     return json({ ok: false, error: `Invalid status ${order.status}` }, 409);
   }
 
-  const body = await req.json().catch(() => null);
-  const parsed = OrderPaySchema.safeParse(body);
+  const bodyRes = await readJsonBody(req);
+  if (!bodyRes.ok) return bodyRes.response;
+  const parsed = OrderPaySchema.safeParse(bodyRes.data);
   if (!parsed.success) {
     return json({ ok: false, error: "Invalid body" }, 400);
   }

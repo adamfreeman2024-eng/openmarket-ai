@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { QuoteRequestSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
-import { json, options, getApiKey } from "@/lib/http";
+import { json, options, getApiKey, readJsonBody, rateLimitResponse } from "@/lib/http";
 import { PLATFORM_FEE_BPS, SITE_URL, USDC_TOKEN_ID } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { assertAssetLive } from "@/lib/assets";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,8 +21,11 @@ function operatorPayTo() {
 /** POST /api/v1/quotes — lock price + fee for x402 */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const body = await req.json().catch(() => null);
-  const parsed = QuoteRequestSchema.safeParse(body);
+  const rl = rateLimit(`quote:${clientKey(req)}`, 120, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
+  const bodyRes = await readJsonBody(req);
+  if (!bodyRes.ok) return bodyRes.response;
+  const parsed = QuoteRequestSchema.safeParse(bodyRes.data);
   if (!parsed.success) {
     return json(
       { ok: false, error: "Invalid body", details: parsed.error.flatten() },

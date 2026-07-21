@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { OrderCreateSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
-import { json, options, getApiKey } from "@/lib/http";
+import { json, options, getApiKey, readJsonBody, rateLimitResponse } from "@/lib/http";
 import { SITE_URL } from "@/lib/config";
+import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,8 +46,11 @@ export async function GET(req: NextRequest) {
 /** POST /api/v1/orders — create order → 402 Payment Required */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const body = await req.json().catch(() => null);
-  const parsed = OrderCreateSchema.safeParse(body);
+  const rl = rateLimit(`order:${clientKey(req)}`, 120, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
+  const bodyRes = await readJsonBody(req);
+  if (!bodyRes.ok) return bodyRes.response;
+  const parsed = OrderCreateSchema.safeParse(bodyRes.data);
   if (!parsed.success) {
     return json(
       { ok: false, error: "Invalid body", details: parsed.error.flatten() },
