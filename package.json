@@ -23,6 +23,7 @@
     "pm2:stop": "pm2 stop openmarket-ai",
     "docker:up": "docker compose up -d --build",
     "docker:down": "docker compose down",
+    "e2e:usdc": "tsx scripts/e2e-usdc.ts",
     "backup": "bash scripts/backup.sh",
     "contract:compile": "hardhat compile",
     "contract:test": "hardhat test",

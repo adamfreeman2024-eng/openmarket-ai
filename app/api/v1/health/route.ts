@@ -9,6 +9,7 @@ import {
 import { ensureSeedCatalog, db } from "@/lib/store";
 import { llmMeta } from "@/lib/llm";
 import { productionChecks } from "@/lib/production-check";
+import { ensureDemoWebhookOffer } from "@/lib/demo-webhook-offer";
 import * as path from "path";
 
 export const runtime = "nodejs";
@@ -21,6 +22,7 @@ export function OPTIONS() {
 /** GET /api/v1/health — ops + agent readiness probe */
 export async function GET() {
   ensureSeedCatalog();
+  ensureDemoWebhookOffer();
   const card = marketCard();
   const llm = llmMeta();
   const prod = productionChecks();

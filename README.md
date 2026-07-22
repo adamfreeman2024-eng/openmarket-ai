@@ -182,6 +182,9 @@ npm run contract:deploy:testnet
 
 - [Vision](docs/VISION.md)
 - [Growth Plan](docs/GROWTH-PLAN.md)
+- [Production readiness](docs/PRODUCTION.md)
+- [Evening handoff](docs/EVENING-HANDOFF.md)
+- [Launch kit (HN / Product Hunt)](docs/LAUNCH-KIT.md)
 - [Agent Spec](docs/AGENT-SPEC.md)
 - [On-Chain Escrow](docs/ONCHAIN-ESCROW.md)
 - [Execution Plan](docs/EXECUTION-PLAN.md)

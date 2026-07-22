@@ -1,6 +1,7 @@
 import { json, options } from "@/lib/http";
 import { productionChecks } from "@/lib/production-check";
 import { db, ensureSeedCatalog } from "@/lib/store";
+import { ensureDemoWebhookOffer } from "@/lib/demo-webhook-offer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export function OPTIONS() {
  */
 export async function GET() {
   ensureSeedCatalog();
+  ensureDemoWebhookOffer();
   const prod = productionChecks();
 
   let storeOk = true;
