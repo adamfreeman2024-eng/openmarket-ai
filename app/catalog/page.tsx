@@ -15,7 +15,7 @@ export default async function CatalogPage() {
     <main className="wrap">
       <p>
         <Link href="/" className="link">
-          ← OpenMarket.ai
+          ← AgentBazaar
         </Link>
       </p>
       <span className="badge">Live catalog · ranked for agents</span>

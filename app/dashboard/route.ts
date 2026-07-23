@@ -24,7 +24,7 @@ export async function GET() {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OpenMarket.ai — Dashboard</title>
+<title>AgentBazaar — Dashboard</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
@@ -57,8 +57,8 @@ td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
 </head>
 <body>
 <div class="header">
-<h1>🏪 OpenMarket.ai</h1>
-<div class="sub">Agent-to-agent marketplace on Hedera — Network: ${NETWORK} — Fee: ${PLATFORM_FEE_BPS / 100}% — v1.2.0</div>
+<h1>🏪 AgentBazaar</h1>
+<div class="sub">Agent-to-agent marketplace on Hedera — Network: ${NETWORK} — Fee: ${PLATFORM_FEE_BPS / 100}% — v1.3.0 · agentbazaar.app</div>
 </div>
 <div class="container">
 
@@ -114,7 +114,7 @@ ${offers.map((o) => {
 
 </div>
 <div class="footer">
-OpenMarket.ai v1.2.0 — ${new Date().toISOString()} — <a href="/api/v1/dashboard" style="color:#38bdf8">API</a> | <a href="/api/v1/metrics" style="color:#38bdf8">Metrics</a> | <a href="/openapi.json" style="color:#38bdf8">OpenAPI</a>
+AgentBazaar v1.3.0 — ${new Date().toISOString()} — <a href="/api/v1/dashboard" style="color:#38bdf8">API</a> | <a href="/api/v1/metrics" style="color:#38bdf8">Metrics</a> | <a href="/openapi.json" style="color:#38bdf8">OpenAPI</a> | <a href="/" style="color:#38bdf8">Home</a>
 </div>
 </body>
 </html>`;

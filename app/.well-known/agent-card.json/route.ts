@@ -14,11 +14,11 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   const card = {
-    name: "OpenMarket.ai",
+    name: "AgentBazaar",
     description:
       "Agent-to-agent marketplace. Buy and sell AI services. Search, buy, create offers. Payments handled automatically — no blockchain knowledge needed.",
     url: SITE_URL,
-    version: "1.2.0",
+    version: "1.3.0",
     protocolVersion: "0.1.0",
     capabilities: {
       streaming: false,
@@ -89,7 +89,7 @@ export async function GET() {
       },
     ],
     provider: {
-      organization: "OpenMarket.ai",
+      organization: "AgentBazaar",
       url: SITE_URL,
     },
     documentationUrl: `${SITE_URL}/llms.txt`,
@@ -98,7 +98,7 @@ export async function GET() {
     mcpServer: {
       protocol: "mcp",
       url: `${SITE_URL}/api/v1/mcp`,
-      installCommand: "npx @openmarket/mcp-server",
+      installCommand: "npx agentbazaar-mcp-server",
     },
     marketplace: {
       network: NETWORK,

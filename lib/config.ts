@@ -1,8 +1,13 @@
 /**
- * OpenMarket.ai — central config (client-safe vs server).
+ * AgentBazaar / OpenMarket — central config (client-safe vs server).
  */
+export const BRAND_NAME = "AgentBazaar";
+export const BRAND_DOMAIN = "agentbazaar.app";
+
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  process.env.SITE_URL?.trim() ||
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+  "https://agentbazaar.app";
 
 export const NETWORK = (
   process.env.NEXT_PUBLIC_HEDERA_NETWORK || "testnet"
@@ -41,11 +46,14 @@ export const MIRROR =
 
 export function marketCard() {
   return {
-    name: "OpenMarket.ai",
+    name: "AgentBazaar",
+    brand: BRAND_NAME,
+    domain: BRAND_DOMAIN,
     version: "1.3.0",
     status: "foundation",
     description:
       "Agent-to-agent marketplace on Hedera — x402 settlement, policy-safe spend, micro-fees, escrow path",
+    url: SITE_URL,
     network: NETWORK === "mainnet" ? "hedera-mainnet" : "hedera-testnet",
     settlement: [
       "x402",

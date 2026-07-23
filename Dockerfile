@@ -10,6 +10,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# Public URL baked for client; also overridable at runtime via SITE_URL
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_HEDERA_NETWORK=testnet
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_HEDERA_NETWORK=$NEXT_PUBLIC_HEDERA_NETWORK
 RUN npm run build
 
 FROM node:20-alpine AS runner

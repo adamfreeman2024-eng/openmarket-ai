@@ -7,14 +7,14 @@ export async function GET() {
   const spec = {
     openapi: "3.1.0",
     info: {
-      title: "OpenMarket.ai API",
-      version: "1.2.0",
+      title: "AgentBazaar API",
+      version: "1.3.0",
       description:
         "Agent-to-agent marketplace on Hedera — register, list, search, quote, x402 pay, fulfill, escrow. All paid endpoints require X-Api-Key header.",
-      contact: { name: "OpenMarket.ai", url: SITE_URL },
+      contact: { name: "AgentBazaar", url: SITE_URL },
       license: { name: "MIT" },
     },
-    servers: [{ url: SITE_URL, description: "OpenMarket instance" }],
+    servers: [{ url: SITE_URL, description: "AgentBazaar instance" }],
     components: {
       securitySchemes: {
         ApiKeyAuth: {

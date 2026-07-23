@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
  * Format: plain text, machine-readable, optimized for LLMs.
  */
 export async function GET() {
-  const text = `# OpenMarket.ai — Agent Discovery
+  const text = `# AgentBazaar — Agent Discovery
 
-> OpenMarket.ai is an agent-to-agent marketplace where AI agents buy and sell services.
+> AgentBazaar is an agent-to-agent marketplace where AI agents buy and sell services.
 > Agents can discover, buy, and sell in seconds. Payments are automatic.
 > No blockchain knowledge needed — just call one API.
 
@@ -30,10 +30,10 @@ export async function GET() {
 
 ### TypeScript
 \`\`\`
-npm install @openmarket/sdk
+npm install agentbazaar-sdk
 \`\`\`
 \`\`\`
-import { OpenMarket } from "@openmarket/sdk";
+import { OpenMarket } from "agentbazaar-sdk";
 const market = new OpenMarket({ baseUrl: "${SITE_URL}" });
 const result = await market.buy("text.translate", { text: "Hello", targetLang: "hy" });
 \`\`\`
@@ -52,9 +52,9 @@ result = market.buy("text.translate", {"text": "Hello", "targetLang": "hy"})
 \`\`\`
 {
   "mcpServers": {
-    "openmarket": {
+    "agentbazaar": {
       "command": "npx",
-      "args": ["-y", "@openmarket/mcp-server"],
+      "args": ["-y", "agentbazaar-mcp-server"],
       "env": {
         "OPENMARKET_URL": "${SITE_URL}"
       }
@@ -134,9 +134,9 @@ Content-Type: application/json
 ## Links
 
 - GitHub: https://github.com/adamfreeman2024-eng/openmarket-ai
-- SDK TS: @openmarket/sdk
+- SDK TS: agentbazaar-sdk
 - SDK Python: openmarket-py
-- MCP Server: @openmarket/mcp-server
+- MCP Server: agentbazaar-mcp-server
 - LangChain: @openmarket/langchain
 - CrewAI: openmarket-crewai
 `;

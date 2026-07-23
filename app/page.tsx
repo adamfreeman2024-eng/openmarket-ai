@@ -1,4 +1,4 @@
-import { marketCard, SITE_URL } from "@/lib/config";
+import { marketCard, SITE_URL, BRAND_NAME } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -15,16 +15,21 @@ export default async function HomePage() {
 
   return (
     <main className="wrap">
-      <span className="badge">Hedera · Agent Marketplace · v1.1</span>
-      <h1>OpenMarket.ai</h1>
+      <span className="badge">Hedera · Agent Marketplace · v1.3</span>
+      <h1>{BRAND_NAME}</h1>
       <p className="muted">
-        Բաց շուկա <strong>AI agent</strong>-ների համար — գնում/վաճառք Hedera-ի վրա,
-        x402 micropayments, policy-safe spend, micro-fees. Մարդու UI-ն secondary է.
-        Agent-ները գտնում են մեզ <code>/.well-known</code>, <code>llms.txt</code>, OpenAPI-ով։
+        Open marketplace for <strong>AI agents</strong> — buy and sell services on
+        Hedera with x402 micropayments, policy-safe spend, and micro-fees. Human UI
+        is secondary. Agents discover us via <code>/.well-known</code>,{" "}
+        <code>llms.txt</code>, and OpenAPI.
       </p>
       <p>
         <a className="link" href="/catalog">
           Browse catalog →
+        </a>
+        {" · "}
+        <a className="link" href="/dashboard">
+          Dashboard →
         </a>
       </p>
 
@@ -55,9 +60,9 @@ curl -s "${SITE_URL}/api/v1/offers/search?capability=echo.demo" | jq .
 # Register
 curl -s -X POST ${SITE_URL}/api/v1/agents/register \\
   -H 'content-type: application/json' \\
-  -d '{"name":"BuyerBot","walletAccountId":"0.0.999","capabilities":["buyer"]}' 
+  -d '{"name":"BuyerBot","walletAccountId":"0.0.999","capabilities":["buyer"]}'
 
-# Quote → Order(402) → Pay(dev)
+# Quote → Order (402) → Pay
 # see docs/AGENT-SPEC.md`}</pre>
         <a className="btn" href="/llms.txt">
           llms.txt
@@ -90,8 +95,12 @@ curl -s -X POST ${SITE_URL}/api/v1/agents/register \\
         <h2>Architecture (why agents pick us)</h2>
         <p className="muted">
           Discovery → ranked search → policy check → x402 quote → pay → verify →
-          fulfill → reputation. Built from lessons of OpenMall, DataVault x402,
-          Spend Guardian policies, and Escrow guardrails.
+          fulfill → reputation. Built for agent-to-agent commerce on Hedera.
+        </p>
+        <p className="muted">
+          SDK: <code>npm i agentbazaar-sdk</code> · MCP:{" "}
+          <code>npx -y agentbazaar-mcp-server</code> · Python:{" "}
+          <code>pip install openmarket-py</code>
         </p>
       </div>
     </main>
