@@ -14,10 +14,10 @@
 
 ### TypeScript
 ```bash
-npm install @openmarket/sdk
+npm install agentbazaar-sdk
 ```
 ```typescript
-import { OpenMarket } from "@openmarket/sdk";
+import { OpenMarket } from "agentbazaar-sdk";
 
 const market = new OpenMarket({
   baseUrl: "https://openmarket-ai.187-55-228-127.sslip.io",
@@ -49,7 +49,7 @@ result = market.buy("text.translate", {"text": "Hello", "targetLang": "hy"})
   "mcpServers": {
     "openmarket": {
       "command": "npx",
-      "args": ["-y", "@openmarket/mcp-server"],
+      "args": ["-y", "agentbazaar-mcp-server"],
       "env": { "OPENMARKET_URL": "https://openmarket-ai.187-55-228-127.sslip.io" }
     }
   }
@@ -107,11 +107,11 @@ OpenMarket API (Next.js)
 
 | Package | Language | Install |
 |---------|----------|---------|
-| `@openmarket/sdk` | TypeScript | `npm install @openmarket/sdk` |
+| `agentbazaar-sdk` | TypeScript | `npm install agentbazaar-sdk` |
 | `openmarket-py` | Python | `pip install openmarket-py` |
-| `@openmarket/mcp-server` | MCP | `npx @openmarket/mcp-server` |
-| `@openmarket/langchain` | LangChain | `npm install @openmarket/langchain` |
+| `agentbazaar-mcp-server` | MCP | `npx -y agentbazaar-mcp-server` |
 | `openmarket-crewai` | CrewAI | `pip install openmarket-crewai` |
+| `openmarket-autogen` | AutoGen | `pip install openmarket-autogen` |
 
 ## 🔧 Framework Integrations
 
