@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-openmarket/__init__.py
-openmarket/cli.py
-openmarket_py.egg-info/PKG-INFO
-openmarket_py.egg-info/SOURCES.txt
-openmarket_py.egg-info/dependency_links.txt
-openmarket_py.egg-info/entry_points.txt
-openmarket_py.egg-info/top_level.txt

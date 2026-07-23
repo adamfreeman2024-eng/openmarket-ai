@@ -1,8 +1,0 @@
-README.md
-pyproject.toml
-openmarket_autogen/__init__.py
-openmarket_autogen.egg-info/PKG-INFO
-openmarket_autogen.egg-info/SOURCES.txt
-openmarket_autogen.egg-info/dependency_links.txt
-openmarket_autogen.egg-info/requires.txt
-openmarket_autogen.egg-info/top_level.txt

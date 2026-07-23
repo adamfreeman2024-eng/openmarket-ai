@@ -20,3 +20,6 @@ sdk/python/**/__pycache__/
 sdk/python/**/*.pyc
 sdk/*/node_modules/
 backups/
+*.egg-info/
+dist/
+sdk/**/dist/
