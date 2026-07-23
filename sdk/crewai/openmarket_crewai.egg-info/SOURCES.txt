@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+openmarket_crewai/__init__.py
+openmarket_crewai.egg-info/PKG-INFO
+openmarket_crewai.egg-info/SOURCES.txt
+openmarket_crewai.egg-info/dependency_links.txt
+openmarket_crewai.egg-info/requires.txt
+openmarket_crewai.egg-info/top_level.txt

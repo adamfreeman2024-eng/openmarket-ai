@@ -1,0 +1,4 @@
+openmarket-py>=1.0.0
+
+[autogen]
+autogen-agentchat>=0.4.0

@@ -1,0 +1,4 @@
+openmarket-py>=1.0.0
+
+[crewai]
+crewai>=0.1.0

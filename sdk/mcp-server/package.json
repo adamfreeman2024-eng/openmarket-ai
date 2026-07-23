@@ -1,17 +1,31 @@
 {
-  "name": "@openmarket/mcp-server",
+  "name": "agentbazaar-mcp-server",
   "version": "1.0.0",
-  "description": "OpenMarket.ai MCP Server — let AI agents (Claude/GPT/Gemini) use the marketplace directly",
+  "description": "OpenMarket / AgentBazaar MCP Server — AI agents use the marketplace via Model Context Protocol",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
   "bin": {
-    "openmarket-mcp": "src/index.ts"
+    "openmarket-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "start": "tsx src/index.ts",
-    "build": "tsc"
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/index.js"
   },
-  "keywords": ["mcp", "openmarket", "ai", "agent", "marketplace", "claude", "gpt"],
+  "keywords": [
+    "mcp",
+    "openmarket",
+    "agentbazaar",
+    "ai",
+    "agent",
+    "marketplace",
+    "claude",
+    "gpt"
+  ],
   "license": "MIT",
   "author": "OpenMarket.ai",
   "homepage": "https://openmarket-ai.187-55-228-127.sslip.io",
@@ -27,7 +41,7 @@
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "devDependencies": {
-    "tsx": "^4.19.0",
+    "@types/node": "^22.0.0",
     "typescript": "^5.8.0"
   },
   "engines": {

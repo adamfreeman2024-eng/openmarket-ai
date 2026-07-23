@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * OpenMarket.ai MCP Server (Model Context Protocol)
  * 

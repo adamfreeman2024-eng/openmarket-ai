@@ -1,14 +1,18 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "openmarket-autogen"
 version = "1.0.0"
-description = "OpenMarket.ai tools for Microsoft AutoGen / AG2 agents"
+description = "OpenMarket / AgentBazaar tools for Microsoft AutoGen / AG2"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "OpenMarket.ai" }]
 keywords = ["openmarket", "autogen", "ag2", "ai", "agents", "hedera", "marketplace"]
 dependencies = [
-  "openmarket>=1.0.0",
+  "openmarket-py>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -18,9 +22,6 @@ autogen = ["autogen-agentchat>=0.4.0"]
 Homepage = "https://openmarket-ai.187-55-228-127.sslip.io"
 Repository = "https://github.com/adamfreeman2024-eng/openmarket-ai"
 
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
 [tool.setuptools.packages.find]
+where = ["."]
 include = ["openmarket_autogen*"]

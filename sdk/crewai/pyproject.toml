@@ -1,14 +1,16 @@
 [build-system]
 requires = ["setuptools>=64", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "openmarket-crewai"
 version = "1.0.0"
-description = "OpenMarket.ai tools for CrewAI — let agents search, buy, sell on the marketplace"
+description = "OpenMarket / AgentBazaar tools for CrewAI agents"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
+authors = [{name = "OpenMarket.ai"}]
+keywords = ["openmarket", "crewai", "agents", "hedera", "marketplace"]
 dependencies = [
     "openmarket-py>=1.0.0",
 ]
@@ -16,5 +18,10 @@ dependencies = [
 [project.optional-dependencies]
 crewai = ["crewai>=0.1.0"]
 
+[project.urls]
+Homepage = "https://openmarket-ai.187-55-228-127.sslip.io"
+Repository = "https://github.com/adamfreeman2024-eng/openmarket-ai"
+
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["openmarket_crewai*"]
