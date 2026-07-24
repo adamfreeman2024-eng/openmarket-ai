@@ -9,6 +9,8 @@ export async function GET() {
     "",
     "/catalog",
     "/how-it-works",
+    "/terms",
+    "/privacy",
     "/dashboard",
     "/llms.txt",
     "/agents.txt",

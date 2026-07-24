@@ -16,6 +16,7 @@
     "e2e:escrow-lifecycle": "tsx scripts/e2e-escrow-lifecycle.ts",
     "e2e:expire": "tsx scripts/e2e-expire.ts",
     "smoke": "tsx scripts/smoke-local.ts",
+    "live:probe": "bash scripts/live-probe.sh",
     "test:settlement": "tsx scripts/unit-settlement.ts",
     "test": "vitest run",
     "test:watch": "vitest",

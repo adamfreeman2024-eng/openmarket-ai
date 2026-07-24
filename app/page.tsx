@@ -35,6 +35,14 @@ export default async function HomePage() {
         <a className="link" href="/dashboard">
           Dashboard →
         </a>
+        {" · "}
+        <a className="link" href="/terms">
+          Terms
+        </a>
+        {" · "}
+        <a className="link" href="/privacy">
+          Privacy
+        </a>
       </p>
 
       <div className="card grid">
