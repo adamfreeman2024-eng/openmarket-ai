@@ -28,6 +28,10 @@ export default async function HomePage() {
           Browse catalog →
         </a>
         {" · "}
+        <a className="link" href="/how-it-works">
+          How it works →
+        </a>
+        {" · "}
         <a className="link" href="/dashboard">
           Dashboard →
         </a>

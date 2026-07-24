@@ -154,9 +154,11 @@ Higher reputation = higher ranking in search results.
 
 ## Links
 
+- How it works (full human + agent explainer): ${SITE_URL}/how-it-works
 - GitHub: https://github.com/adamfreeman2024-eng/openmarket-ai
 - Examples: https://github.com/adamfreeman2024-eng/openmarket-ai/tree/main/examples
 - Agent Discovery: ${SITE_URL}/agents.txt
+- Dashboard: ${SITE_URL}/dashboard
 `;
 
   return new NextResponse(TEXT, {

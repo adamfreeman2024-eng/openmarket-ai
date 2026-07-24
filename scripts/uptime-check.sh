@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Uptime check — silent OK, exit 1 + message on failure (for cron email/alert)
 set -euo pipefail
-URL="${OPENMARKET_URL:-https://openmarket-ai.187-55-228-127.sslip.io}"
+URL="${OPENMARKET_URL:-https://agentbazaar.app}"
 code=$(curl -sS -o /tmp/om-ready.json -w "%{http_code}" --max-time 15 "$URL/api/v1/ready" || echo 000)
 if [[ "$code" != "200" ]]; then
   echo "OPENMARKET DOWN ready_http=$code url=$URL $(date -u +%Y-%m-%dT%H:%M:%SZ)"

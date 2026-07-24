@@ -8,10 +8,15 @@ export async function GET() {
   const urls = [
     "",
     "/catalog",
+    "/how-it-works",
+    "/dashboard",
     "/llms.txt",
+    "/agents.txt",
     "/openapi.json",
     "/.well-known/openmarket.json",
+    "/.well-known/agent-card.json",
     "/api/v1/health",
+    "/api/v1/ready",
     "/api/v1/offers/search",
   ];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
