@@ -3,6 +3,7 @@ import { db, ensureSeedCatalog } from "@/lib/store";
 import { searchOffers } from "@/lib/ranking";
 import { json, options } from "@/lib/http";
 import { reputationForApi } from "@/lib/reputation";
+import { publicOffer } from "@/lib/public-dto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
         : null;
       return {
         score: Number(r.score.toFixed(6)),
-        offer: r.offer,
+        offer: publicOffer(r.offer),
         seller: r.seller
           ? {
               id: r.seller.id,

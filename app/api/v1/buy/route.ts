@@ -147,7 +147,13 @@ export async function POST(req: NextRequest) {
     return json({ ok: false, error: v.error, mode: v.mode, orderId: order.id }, 400);
   }
   if (parsed.data.transactionId) {
-    db.markTxUsed(parsed.data.transactionId);
+    const claimed = db.claimTxUsed(parsed.data.transactionId);
+    if (!claimed) {
+      return json(
+        { ok: false, error: "TRANSACTION_ALREADY_USED", mode: "replay", orderId: order.id },
+        409
+      );
+    }
     order.transactionId = parsed.data.transactionId;
   }
 

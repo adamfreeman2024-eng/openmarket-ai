@@ -3,6 +3,7 @@ import { AgentRegisterSchema } from "@/lib/types";
 import { db, newId, utcDay, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
 import { nanoid } from "nanoid";
+import { parsePublicHttpUrl } from "@/lib/ssrf";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest) {
     );
   }
   const d = parsed.data;
+  if (d.webhookUrl) {
+    const safe = parsePublicHttpUrl(d.webhookUrl);
+    if (safe.ok === false) {
+      return json({ ok: false, error: `Invalid webhookUrl: ${safe.error}` }, 400);
+    }
+  }
   const key = "omk_" + nanoid(24);
   const agent = {
     id: newId("agt"),

@@ -320,13 +320,41 @@ export const db = {
     const n = normalizeTxId(tx);
     return store().usedTx.has(tx) || store().usedTx.has(n);
   },
-  markTxUsed(tx: string) {
+  /**
+   * Atomic claim for payment replay protection.
+   * Returns true only the first time this tx is claimed.
+   */
+  claimTxUsed(tx: string): boolean {
     const { normalizeTxId } = require("./tx-id") as {
       normalizeTxId: (s: string) => string;
     };
-    store().usedTx.add(tx);
-    store().usedTx.add(normalizeTxId(tx));
-    persistSync(); // Critical: payment replay protection must persist immediately
+    const n = normalizeTxId(tx);
+    const s = store();
+    if (s.usedTx.has(tx) || s.usedTx.has(n)) return false;
+    s.usedTx.add(tx);
+    s.usedTx.add(n);
+    persistSync();
+    return true;
+  },
+  markTxUsed(tx: string) {
+    this.claimTxUsed(tx);
+  },
+  /**
+   * CAS-style order status transition to reduce double-fulfill races.
+   */
+  transitionOrderStatus(
+    id: string,
+    from: string | string[],
+    to: string
+  ): boolean {
+    const o = store().orders.get(id);
+    if (!o) return false;
+    const allowed = Array.isArray(from) ? from : [from];
+    if (!allowed.includes(o.status)) return false;
+    o.status = to as typeof o.status;
+    store().orders.set(id, o);
+    schedulePersist();
+    return true;
   },
   listAudit(limit = 50) {
     return store().audit.slice(0, limit);

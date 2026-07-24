@@ -1,8 +1,18 @@
 import { NextRequest } from "next/server";
 import { OrderPaySchema } from "@/lib/types";
 import { db, audit, ensureSeedCatalog, utcDay } from "@/lib/store";
-import { json, options, readJsonBody, rateLimitResponse } from "@/lib/http";
-import { verifyPayment, fulfillOffer, createEscrowForOrder } from "@/lib/settlement";
+import {
+  json,
+  options,
+  readJsonBody,
+  rateLimitResponse,
+  getApiKey,
+} from "@/lib/http";
+import {
+  verifyPayment,
+  fulfillOffer,
+  createEscrowForOrder,
+} from "@/lib/settlement";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -16,6 +26,12 @@ export function OPTIONS() {
  * POST /api/v1/orders/:id/pay
  * Body: { transactionId } or { devFakePay: true }
  * Verifies settlement → fulfills → returns result
+ *
+ * Security:
+ * - Failed verify does NOT poison order status (stays awaiting_payment)
+ * - claimTxUsed before fulfill (replay / race)
+ * - transitionOrderStatus CAS to reduce double-fulfill
+ * - If order has buyerAgentId, API key must match that buyer (when provided)
  */
 export async function POST(
   req: NextRequest,
@@ -30,8 +46,25 @@ export async function POST(
   if (order.status === "completed") {
     return json({ ok: true, order, note: "Already completed" });
   }
+  if (order.status === "fulfilling" || order.status === "paid") {
+    return json(
+      { ok: false, error: `Order busy (${order.status}) — retry shortly` },
+      409
+    );
+  }
   if (order.status !== "awaiting_payment" && order.status !== "failed") {
     return json({ ok: false, error: `Invalid status ${order.status}` }, 409);
+  }
+
+  // Optional binding: if order has a registered buyer, require their key when sent
+  if (order.buyerAgentId) {
+    const key = getApiKey(req);
+    if (key) {
+      const agent = db.getAgentByKey(key);
+      if (!agent || agent.id !== order.buyerAgentId) {
+        return json({ ok: false, error: "API key does not match order buyer" }, 403);
+      }
+    }
   }
 
   const bodyRes = await readJsonBody(req);
@@ -52,57 +85,72 @@ export async function POST(
     asset: order.priceAsset,
   });
   if (!v.ok) {
-    order.status = "failed";
-    order.error = v.error;
-    db.putOrder(order);
+    // Do NOT mark order failed — bad txs must not DoS legitimate buyers
     audit("order.pay_fail", { orderId: order.id, error: v.error });
     return json({ ok: false, error: v.error, mode: v.mode }, 400);
   }
 
   if (parsed.data.transactionId) {
-    db.markTxUsed(parsed.data.transactionId);
+    const claimed = db.claimTxUsed(parsed.data.transactionId);
+    if (!claimed) {
+      return json(
+        { ok: false, error: "TRANSACTION_ALREADY_USED", mode: "replay" },
+        409
+      );
+    }
     order.transactionId = parsed.data.transactionId;
+    db.putOrder(order);
   }
 
-  order.status = "fulfilling";
-  db.putOrder(order);
+  const locked = db.transitionOrderStatus(
+    order.id,
+    ["awaiting_payment", "failed"],
+    "fulfilling"
+  );
+  if (!locked) {
+    return json(
+      { ok: false, error: "Order already being processed", mode: "race" },
+      409
+    );
+  }
+  // reload after transition
+  const live = db.getOrder(order.id)!;
   const t0 = Date.now();
 
-  const offer = db.getOffer(order.offerId);
+  const offer = db.getOffer(live.offerId);
   try {
-    // Escrow path: payment locks funds until proof/release
     if (offer?.escrow) {
       const escrow = createEscrowForOrder({
-        orderId: order.id,
-        amount: order.totalAmount,
-        asset: order.priceAsset,
-        buyerWallet: order.buyerWallet,
-        sellerAgentId: order.sellerAgentId,
+        orderId: live.id,
+        amount: live.totalAmount,
+        asset: live.priceAsset,
+        buyerWallet: live.buyerWallet,
+        sellerAgentId: live.sellerAgentId,
       });
-      order.status = "paid";
-      order.result = {
+      live.status = "paid";
+      live.result = {
         escrowId: escrow.id,
         status: "locked",
         next: `POST /api/v1/escrow/${escrow.id}/release { \"proof\": \"...\" }`,
       };
-      order.completedAt = undefined;
-      db.putOrder(order);
-      audit("escrow.locked", { orderId: order.id, escrowId: escrow.id });
-      if (order.buyerAgentId) {
-        const buyer = db.getAgent(order.buyerAgentId);
+      live.completedAt = undefined;
+      db.putOrder(live);
+      audit("escrow.locked", { orderId: live.id, escrowId: escrow.id });
+      if (live.buyerAgentId) {
+        const buyer = db.getAgent(live.buyerAgentId);
         if (buyer) {
           if (buyer.policy.spentDay !== utcDay()) {
             buyer.policy.spentDay = utcDay();
             buyer.policy.spentToday = 0;
           }
-          buyer.policy.spentToday += order.totalAmount;
+          buyer.policy.spentToday += live.totalAmount;
           buyer.stats.purchases += 1;
           db.putAgent(buyer);
         }
       }
       return json({
         ok: true,
-        order,
+        order: live,
         escrow,
         settlementMode: v.mode,
         note: "Payment accepted; escrow locked until release",
@@ -112,32 +160,30 @@ export async function POST(
     const result = await fulfillOffer(
       offer || { capability: "unknown" },
       quote.input as Record<string, unknown> | undefined,
-      { orderId: order.id, offerId: offer?.id }
+      { orderId: live.id, offerId: offer?.id }
     );
     const latencyMs = Date.now() - t0;
-    order.status = "completed";
-    order.result = result;
-    order.completedAt = new Date().toISOString();
-    order.latencyMs = latencyMs;
-    db.putOrder(order);
+    live.status = "completed";
+    live.result = result;
+    live.completedAt = new Date().toISOString();
+    live.latencyMs = latencyMs;
+    db.putOrder(live);
 
-    // seller stats
-    const seller = db.getAgent(order.sellerAgentId);
+    const seller = db.getAgent(live.sellerAgentId);
     if (seller) {
       seller.stats.sales += 1;
       seller.stats.success += 1;
       seller.stats.totalLatencyMs += latencyMs;
       db.putAgent(seller);
     }
-    // buyer spend + stats
-    if (order.buyerAgentId) {
-      const buyer = db.getAgent(order.buyerAgentId);
+    if (live.buyerAgentId) {
+      const buyer = db.getAgent(live.buyerAgentId);
       if (buyer) {
         if (buyer.policy.spentDay !== utcDay()) {
           buyer.policy.spentDay = utcDay();
           buyer.policy.spentToday = 0;
         }
-        buyer.policy.spentToday += order.totalAmount;
+        buyer.policy.spentToday += live.totalAmount;
         buyer.stats.purchases += 1;
         buyer.stats.success += 1;
         db.putAgent(buyer);
@@ -145,26 +191,26 @@ export async function POST(
     }
 
     audit("order.completed", {
-      orderId: order.id,
+      orderId: live.id,
       mode: v.mode,
       latencyMs,
     });
 
     return json({
       ok: true,
-      order,
+      order: live,
       settlementMode: v.mode,
     });
   } catch (e) {
-    order.status = "failed";
-    order.error = e instanceof Error ? e.message : "fulfill failed";
-    db.putOrder(order);
-    const seller = db.getAgent(order.sellerAgentId);
+    live.status = "failed";
+    live.error = e instanceof Error ? e.message : "fulfill failed";
+    db.putOrder(live);
+    const seller = db.getAgent(live.sellerAgentId);
     if (seller) {
       seller.stats.fail += 1;
       db.putAgent(seller);
     }
-    audit("order.fulfill_fail", { orderId: order.id, error: order.error });
-    return json({ ok: false, error: order.error, order }, 500);
+    audit("order.fulfill_fail", { orderId: live.id, error: live.error });
+    return json({ ok: false, error: live.error, order: live }, 500);
   }
 }

@@ -5,7 +5,8 @@
  *   - Retry with exponential backoff (3 attempts)
  *   - Configurable timeout
  */
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
+import { assertSafeOutboundUrl } from "./ssrf";
 
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 const MAX_RETRIES = 3;
@@ -37,6 +38,7 @@ async function attemptWebhook(
       headers,
       body,
       signal: AbortSignal.timeout(timeoutMs),
+      redirect: "error",
     });
     return { ok: r.ok, status: r.status };
   } catch (e) {
@@ -58,6 +60,12 @@ export async function notifyWebhook(
 ): Promise<{ ok: boolean; status?: number; error?: string; attempts?: number }> {
   if (!url) return { ok: false, error: "no webhook url" };
 
+  const safe = await assertSafeOutboundUrl(url);
+  if (safe.ok === false) {
+    return { ok: false, error: `webhook blocked: ${safe.error}` };
+  }
+  const target = safe.url.toString();
+
   const body = JSON.stringify({ event, ...payload, at: new Date().toISOString() });
   const signature = signPayload(body);
 
@@ -66,7 +74,7 @@ export async function notifyWebhook(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const timeoutMs = BASE_TIMEOUT_MS * attempt;
-    const result = await attemptWebhook(url, body, signature, timeoutMs);
+    const result = await attemptWebhook(target, body, signature, timeoutMs);
 
     if (result.ok) {
       return { ok: true, status: result.status, attempts: attempt };
@@ -98,11 +106,12 @@ export function verifyWebhookSignature(
   const expected = signPayload(body);
   const received = signature.startsWith("sha256=") ? signature.slice(7) : signature;
   if (!expected || !received) return false;
-  // Timing-safe comparison
-  if (expected.length !== received.length) return false;
-  let diff = 0;
-  for (let i = 0; i < expected.length; i++) {
-    diff |= expected.charCodeAt(i) ^ received.charCodeAt(i);
+  try {
+    const a = Buffer.from(expected, "utf8");
+    const b = Buffer.from(received, "utf8");
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
   }
-  return diff === 0;
 }

@@ -10,6 +10,8 @@ import {
   rateLimitResponse,
 } from "@/lib/http";
 import { assertAssetLive } from "@/lib/assets";
+import { publicOffer } from "@/lib/public-dto";
+import { parsePublicHttpUrl } from "@/lib/ssrf";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -19,10 +21,10 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/offers — all active offers */
+/** GET /api/v1/offers — all active offers (no secret fields) */
 export async function GET() {
   ensureSeedCatalog();
-  return json({ ok: true, offers: db.listOffers() });
+  return json({ ok: true, offers: db.listOffers().map(publicOffer) });
 }
 
 /** POST /api/v1/offers — seller creates listing (auth) */
@@ -47,6 +49,13 @@ export async function POST(req: NextRequest) {
   if (!assetOk.ok) {
     return json({ ok: false, error: assetOk.error }, 400);
   }
+  const webhookUrl = d.webhookUrl || agent.webhookUrl;
+  if (webhookUrl) {
+    const safe = parsePublicHttpUrl(webhookUrl);
+    if (safe.ok === false) {
+      return json({ ok: false, error: `Invalid webhookUrl: ${safe.error}` }, 400);
+    }
+  }
   const offer = {
     id: newId("off"),
     agentId: agent.id,
@@ -56,7 +65,7 @@ export async function POST(req: NextRequest) {
     priceAmount: d.priceAmount,
     priceAsset: d.priceAsset,
     fulfillmentType: d.fulfillmentType,
-    webhookUrl: d.webhookUrl || agent.webhookUrl,
+    webhookUrl,
     maxSeconds: d.maxSeconds,
     escrow: d.escrow,
     tags: d.tags || [],
@@ -65,5 +74,5 @@ export async function POST(req: NextRequest) {
   };
   db.putOffer(offer);
   audit("offer.create", { offerId: offer.id, agentId: agent.id });
-  return json({ ok: true, offer });
+  return json({ ok: true, offer: publicOffer(offer) });
 }
