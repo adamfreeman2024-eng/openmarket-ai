@@ -12,7 +12,7 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit= */
+/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit=&tags=&category=&sortBy= */
 export async function GET(req: NextRequest) {
   ensureSeedCatalog();
   const sp = req.nextUrl.searchParams;
@@ -27,6 +27,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Parse tags (comma-separated)
+  const tagsParam = sp.get("tags");
+  const tags = tagsParam ? tagsParam.split(",").map(t => t.trim()).filter(Boolean) : undefined;
+
   const results = searchOffers(db.listOffers(), agents, {
     q: sp.get("q") || undefined,
     capability: sp.get("capability") || undefined,
@@ -35,6 +39,10 @@ export async function GET(req: NextRequest) {
     limit: sp.get("limit") ? Number(sp.get("limit")) : 20,
     escrows,
     ordersByAgent,
+    tags,
+    category: sp.get("category") || undefined,
+    sortBy: (sp.get("sortBy") as "relevance" | "price_low" | "price_high" | "reputation" | "speed") || undefined,
+    minRating: sp.get("minRating") ? Number(sp.get("minRating")) : undefined,
   });
 
   return json({

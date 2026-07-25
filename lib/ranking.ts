@@ -50,6 +50,10 @@ export function searchOffers(
     limit?: number;
     escrows?: EscrowRecord[];
     ordersByAgent?: Map<string, number>;
+    tags?: string[];
+    category?: string;
+    sortBy?: "relevance" | "price_low" | "price_high" | "reputation" | "speed";
+    minRating?: number;
   }
 ) {
   const text = (q.q || "").toLowerCase().trim();
@@ -74,6 +78,19 @@ export function searchOffers(
         o.tags.some((t) => t.includes(text))
     );
   }
+  // Tag filtering
+  if (q.tags && q.tags.length > 0) {
+    list = list.filter((o) =>
+      q.tags!.some((tag) => o.tags.includes(tag))
+    );
+  }
+  // Category filtering (capability prefix match, e.g. "legal", "security", "text", "code")
+  if (q.category) {
+    list = list.filter(
+      (o) => o.capability.startsWith(q.category!) || o.tags.includes(q.category!)
+    );
+  }
+
   const scored = list
     .map((o) => {
       const seller = agents.get(o.agentId);
@@ -88,7 +105,34 @@ export function searchOffers(
         }),
         seller,
       };
-    })
-    .sort((a, b) => b.score - a.score);
+    });
+
+  // Sort by requested method
+  const sortBy = q.sortBy || "relevance";
+  if (sortBy === "price_low") {
+    scored.sort((a, b) => a.offer.priceAmount - b.offer.priceAmount);
+  } else if (sortBy === "price_high") {
+    scored.sort((a, b) => b.offer.priceAmount - a.offer.priceAmount);
+  } else if (sortBy === "reputation") {
+    scored.sort((a, b) => {
+      const aRep = a.seller ? a.seller.stats.success : 0;
+      const bRep = b.seller ? b.seller.stats.success : 0;
+      return bRep - aRep;
+    });
+  } else if (sortBy === "speed") {
+    scored.sort((a, b) => {
+      const aSpeed = a.seller && a.seller.stats.success > 0
+        ? a.seller.stats.totalLatencyMs / a.seller.stats.success
+        : 999999;
+      const bSpeed = b.seller && b.seller.stats.success > 0
+        ? b.seller.stats.totalLatencyMs / b.seller.stats.success
+        : 999999;
+      return aSpeed - bSpeed;
+    });
+  } else {
+    // Default: relevance (score-based)
+    scored.sort((a, b) => b.score - a.score);
+  }
+
   return scored.slice(0, q.limit ?? 20);
 }
