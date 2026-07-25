@@ -149,7 +149,7 @@ export async function verifyPayment(opts: {
   expectedPayTo: string;
   expectedAmount: number;
   asset: string;
-}): Promise<{
+}) : Promise<{
   ok: boolean;
   error?: string;
   mode: string;
@@ -172,7 +172,7 @@ export async function verifyPayment(opts: {
     const confirmEnv = process.env.DEV_FAKE_PAYMENT_CONFIRMED;
     if (confirmEnv !== "yes_i_know_what_i_am_doing") {
       return { 
-        ok: false, 
+      ok: false, 
         error: "Security: devFakePay with STRICT_SETTLEMENT requires DEV_FAKE_PAYMENT_CONFIRMED env var",
         mode: "security_warning" 
       };
@@ -319,8 +319,10 @@ export async function fulfillOffer(
     maxSeconds?: number;
   },
   input?: Record<string, unknown>,
-  meta?: { orderId?: string; offerId?: string }
+  meta?: { orderId?: string; offerId?: string; maxSeconds?: number }
 ): Promise<unknown> {
+  console.log(`Fulfill Offer: ${offer.capability}, fulfillmentType: ${offer.fulfillmentType}, orderId: ${meta?.orderId}`);
+  const maxSeconds = meta?.maxSeconds || offer.maxSeconds;
   if (offer.fulfillmentType === "webhook" && offer.webhookUrl) {
     const { callWebhookForFulfillment } = await import("./webhook-fulfillment");
     const webhookResult = await callWebhookForFulfillment({
@@ -353,14 +355,17 @@ export async function fulfillOffer(
     "text.sentiment",
     "text.classify",
     "text.extract",
+    "legal.tos_audit", // Added for AI audit
+    "security.smart_contract_audit", // Added for AI audit
   ]);
   if (
     process.env.LLM_FULFILL_ENABLED !== "false" &&
     (llmCaps.has(offer.capability) || offer.fulfillmentType === "llm")
   ) {
+    console.log(`Fulfill Offer: Entering LLM fulfillment path for ${offer.capability}`);
     try {
       const { llmFulfill } = await import("./llm");
-      const r = await llmFulfill(offer.capability, input);
+      const r = await llmFulfill(offer.capability, input, { maxSeconds: maxSeconds });
       if (r.ok) return r.result;
       // fall through to inline with note
       const inline = fulfillInline(offer.capability, input);

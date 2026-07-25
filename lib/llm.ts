@@ -65,6 +65,7 @@ export async function chatComplete(opts: {
   messages: LlmChatMessage[];
   temperature?: number;
   maxTokens?: number;
+  maxSeconds?: number;
 }): Promise<ChatOk | ChatErr> {
   if (!llmConfigured()) {
     return { ok: false, error: "LLM_NOT_CONFIGURED" };
@@ -84,7 +85,7 @@ export async function chatComplete(opts: {
         // GLM reasoning models spend tokens on reasoning_content first
         max_tokens: opts.maxTokens ?? 1200,
       }),
-      signal: AbortSignal.timeout(90_000),
+      signal: AbortSignal.timeout((opts.maxSeconds ?? 90) * 1000),
     });
     const j = (await r.json().catch(() => ({}))) as {
       error?: { message?: string } | string;
@@ -128,7 +129,8 @@ export async function chatComplete(opts: {
 /** Capability-aware digital goods fulfillment */
 export async function llmFulfill(
   capability: string,
-  input?: Record<string, unknown>
+  input?: Record<string, unknown>,
+  opts?: { maxSeconds?: number }
 ): Promise<{ ok: true; result: unknown } | { ok: false; error: string }> {
   if (process.env.LLM_FULFILL_ENABLED === "false") {
     return { ok: false, error: "LLM_FULFILL_DISABLED" };
@@ -337,6 +339,37 @@ export async function llmFulfill(
     };
   }
 
+  if (capability === "legal.tos_audit") {
+    const documentUrl = String(input?.document_url || input?.url || "");
+    const context = String(input?.context || "");
+    if (!documentUrl) return { ok: false, error: "MISSING_DOCUMENT_URL" };
+    const c = await chatComplete({
+      messages: [
+        { role: "system", content: "You are an AI legal auditor. Review the Terms of Service document for legal risks, clarity, compliance, and liabilities. Provide a concise audit report." },
+        { role: "user", content: `Document URL: ${documentUrl}\nContext: ${context.slice(0, 5000)}` },
+      ],
+      maxTokens: 3000,
+      maxSeconds: opts?.maxSeconds,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    return { ok: true, result: { auditReport: c.text, documentUrl, model: c.model, mode: "llm" } };
+  }
+
+  if (capability === "security.smart_contract_audit") {
+    const contractCode = String(input?.contract_code || input?.code || "");
+    if (!contractCode) return { ok: false, error: "MISSING_CONTRACT_CODE" };
+    const c = await chatComplete({
+      messages: [
+        { role: "system", content: "You are an AI smart contract security auditor. Analyze the Solidity code for vulnerabilities (reentrancy, access control, gas, overflow). Provide a security report." },
+        { role: "user", content: contractCode.slice(0, 12000) },
+      ],
+      maxTokens: 3000,
+      maxSeconds: opts?.maxSeconds,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    return { ok: true, result: { securityReport: c.text, contractCodeChars: contractCode.length, model: c.model, mode: "llm" } };
+  }
+
   const c = await chatComplete({
     messages: [
       {
@@ -349,6 +382,7 @@ export async function llmFulfill(
       },
     ],
     maxTokens: 1200,
+    maxSeconds: opts?.maxSeconds,
   });
   if (!c.ok) return { ok: false, error: c.error };
   return {

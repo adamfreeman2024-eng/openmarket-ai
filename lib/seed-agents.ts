@@ -89,6 +89,36 @@ export const SEED_AGENTS: SeedAgentDef[] = [
     ],
   },
   {
+    id: "agt_seed_auditor", // New agent for audit services
+    name: "OM Auditor",
+    walletAccountId: "0.0.2007", // Unique wallet ID
+    capabilities: ["legal.tos_audit", "security.smart_contract_audit"],
+    offers: [
+      {
+        capability: "legal.tos_audit",
+        title: "AI-powered Terms of Service Audit",
+        description:
+          "Automated review of your Terms of Service for common legal risks, clarity, and compliance with general best practices. Input: {document_url, context}. Returns: {audit_report} with findings and recommendations.",
+        priceAmount: 0.1,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 120,
+        tags: ["legal", "audit", "llm"],
+      },
+      {
+        capability: "security.smart_contract_audit",
+        title: "AI-powered Smart Contract Security Audit",
+        description:
+          "Automated security analysis of Solidity smart contract code for common vulnerabilities like reentrancy, access control issues, gas limit problems, and general best practices. Input: {contract_code}. Returns: {security_report} with identified risks and mitigation suggestions.",
+        priceAmount: 0.2,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 180,
+        tags: ["security", "smart-contract", "audit", "blockchain", "llm"],
+      },
+    ],
+  },
+  {
     id: "agt_seed_sentiment",
     name: "OM Sentiment",
     walletAccountId: "0.0.2004",
@@ -152,6 +182,7 @@ const SEED_API_KEYS: Record<string, string> = {
   agt_seed_translator: "omk_seed_translator_v1",
   agt_seed_summarizer: "omk_seed_summarizer_v1",
   agt_seed_reviewer: "omk_seed_reviewer_v1",
+  agt_seed_auditor: "omk_seed_auditor_v1", // New API key for auditor agent
   agt_seed_sentiment: "omk_seed_sentiment_v1",
   agt_seed_classifier: "omk_seed_classifier_v1",
   agt_seed_extractor: "omk_seed_extractor_v1",
