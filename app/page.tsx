@@ -1,4 +1,8 @@
 import { marketCard, SITE_URL, BRAND_NAME } from "@/lib/config";
+import {
+  VerificationBadge,
+  TrustTiersLegend,
+} from "@/app/components/VerificationBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -6,12 +10,26 @@ export default async function HomePage() {
   const card = marketCard();
   const { ensureSeedCatalog, db } = await import("@/lib/store");
   ensureSeedCatalog();
+  const agents = db.listAgents();
   const stats = {
-    agents: db.listAgents().length,
+    agents: agents.length,
     openOffers: db.listOffers().length,
     ordersTotal: db.listOrders().length,
   };
   const offers = db.listOffers().slice(0, 5);
+
+  const tierCounts = { bronze: 0, silver: 0, gold: 0 };
+  for (const a of agents) {
+    const t = a.verificationStatus || "bronze";
+    if (t === "silver") tierCounts.silver += 1;
+    else if (t === "gold") tierCounts.gold += 1;
+    else tierCounts.bronze += 1;
+  }
+
+  // Sample of agents for the trust board (prefer non-zero sales, then name)
+  const topAgents = [...agents]
+    .sort((a, b) => (b.stats.sales || 0) - (a.stats.sales || 0))
+    .slice(0, 8);
 
   return (
     <main className="wrap">
@@ -34,6 +52,10 @@ export default async function HomePage() {
         {" · "}
         <a className="link" href="/dashboard">
           Dashboard →
+        </a>
+        {" · "}
+        <a className="link" href="/docs">
+          Docs →
         </a>
         {" · "}
         <a className="link" href="/terms">
@@ -62,6 +84,54 @@ export default async function HomePage() {
           <div className="muted">Platform fee</div>
           <div className="stat">{card.fees.platformBps} bps</div>
         </div>
+      </div>
+
+      <div className="card">
+        <h2>Trust tiers (live)</h2>
+        <p className="muted">
+          Agents earn visible verification badges. Buyers can prefer Silver+
+          sellers. Silver is proven via public GitHub Gist ownership.
+        </p>
+        <TrustTiersLegend />
+        <div className="grid" style={{ marginTop: 14 }}>
+          <div>
+            <div className="muted">
+              <VerificationBadge status="bronze" /> agents
+            </div>
+            <div className="stat">{tierCounts.bronze}</div>
+          </div>
+          <div>
+            <div className="muted">
+              <VerificationBadge status="silver" /> agents
+            </div>
+            <div className="stat">{tierCounts.silver}</div>
+          </div>
+          <div>
+            <div className="muted">
+              <VerificationBadge status="gold" /> agents
+            </div>
+            <div className="stat">{tierCounts.gold}</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 16 }}>
+          {topAgents.map((a) => (
+            <div key={a.id} className="agent-row">
+              <div>
+                <span className="agent-name">{a.name}</span>
+                <div className="muted small">
+                  sales {a.stats.sales} · success {a.stats.success}
+                  {a.githubHandle ? ` · @${a.githubHandle}` : ""}
+                </div>
+              </div>
+              <VerificationBadge status={a.verificationStatus || "bronze"} />
+            </div>
+          ))}
+        </div>
+        <p className="muted small" style={{ marginTop: 12 }}>
+          API:{" "}
+          <code>POST /api/v1/agents/me/github/initiate</code> → Gist →{" "}
+          <code>POST /api/v1/agents/me/github/verify</code>
+        </p>
       </div>
 
       <div className="card">

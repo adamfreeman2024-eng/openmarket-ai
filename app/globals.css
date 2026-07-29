@@ -84,3 +84,60 @@ pre {
 .price { color: var(--gold); font-weight: 700; white-space: nowrap; }
 .small { font-size: 12px; }
 
+/* Verification tiers (Bronze / Silver / Gold) */
+.tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  vertical-align: middle;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.tier-bronze {
+  color: #fdba74;
+  background: rgba(154, 52, 18, 0.35);
+  border-color: rgba(251, 146, 60, 0.45);
+}
+.tier-silver {
+  color: #e2e8f0;
+  background: rgba(71, 85, 105, 0.55);
+  border-color: rgba(148, 163, 184, 0.55);
+}
+.tier-gold {
+  color: #111;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  border-color: #fcd34d;
+}
+.tier-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 10px 0 4px;
+}
+.offer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.agent-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.agent-row:first-of-type { border-top: none; padding-top: 0; }
+.agent-name { font-weight: 600; color: #e5e7eb; }
+

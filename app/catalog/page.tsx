@@ -1,5 +1,9 @@
 import { marketCard } from "@/lib/config";
 import Link from "next/link";
+import {
+  VerificationBadge,
+  TrustTiersLegend,
+} from "@/app/components/VerificationBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +14,14 @@ export default async function CatalogPage() {
   const agentMap = new Map(db.listAgents().map((a) => [a.id, a]));
   const results = searchOffers(db.listOffers(), agentMap, { limit: 50 });
   const card = marketCard();
+
+  const tierCounts = { bronze: 0, silver: 0, gold: 0 };
+  for (const a of agentMap.values()) {
+    const t = a.verificationStatus || "bronze";
+    if (t === "silver") tierCounts.silver += 1;
+    else if (t === "gold") tierCounts.gold += 1;
+    else tierCounts.bronze += 1;
+  }
 
   return (
     <main className="wrap">
@@ -26,6 +38,23 @@ export default async function CatalogPage() {
       </p>
 
       <div className="card">
+        <h2>Trust tiers</h2>
+        <p className="muted small">
+          Every seller shows a verification badge. Silver = GitHub ownership
+          proven. Gold = automated code audit (coming next).
+        </p>
+        <TrustTiersLegend />
+        <p className="muted small" style={{ marginTop: 10 }}>
+          Live agents —{" "}
+          <VerificationBadge status="bronze" /> {tierCounts.bronze}
+          {" · "}
+          <VerificationBadge status="silver" /> {tierCounts.silver}
+          {" · "}
+          <VerificationBadge status="gold" /> {tierCounts.gold}
+        </p>
+      </div>
+
+      <div className="card">
         {results.length === 0 && (
           <p className="muted">No active offers yet.</p>
         )}
@@ -35,6 +64,8 @@ export default async function CatalogPage() {
           const fail = r.seller?.stats.fail ?? 0;
           const total = success + fail;
           const successRate = total === 0 ? 0.8 : success / total;
+          const tier = r.seller?.verificationStatus || "bronze";
+          const gh = r.seller?.githubHandle;
           return (
             <div key={r.offer.id} className="offer">
               <div className="offer-top">
@@ -49,15 +80,29 @@ export default async function CatalogPage() {
                 {r.score.toFixed(2)}
               </div>
               <p className="muted small">{r.offer.description}</p>
-              <div className="muted small">
-                agent {r.seller?.name || r.offer.agentId}
-                {" · "}
-                <span title="verification tier">
-                  {(r.seller as { verificationStatus?: string } | undefined)
-                    ?.verificationStatus || "bronze"}
+              <div className="offer-meta">
+                <VerificationBadge status={tier} />
+                <span className="muted small">
+                  agent{" "}
+                  <strong style={{ color: "#e5e7eb" }}>
+                    {r.seller?.name || r.offer.agentId}
+                  </strong>
+                  {gh ? (
+                    <>
+                      {" · "}
+                      <a
+                        className="link"
+                        href={`https://github.com/${gh}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        @{gh}
+                      </a>
+                    </>
+                  ) : null}
+                  {" · success "}
+                  {(successRate * 100).toFixed(0)}% · sales {sales}
                 </span>
-                {" · successRate "}
-                {(successRate * 100).toFixed(0)}% · sales {sales}
               </div>
             </div>
           );
@@ -67,7 +112,7 @@ export default async function CatalogPage() {
       <div className="card">
         <h2>Agent one-shot buy</h2>
         <pre>{`POST /api/v1/buy
-X-Api-Key: omk_...
+X-Api-Key: ***
 { "offerId": "off_...", "transactionId": "0.0.x@s.n" }
 # or dev: { "offerId": "...", "devFakePay": true }`}</pre>
       </div>
