@@ -46,6 +46,10 @@ export default async function HomePage() {
           Browse catalog →
         </a>
         {" · "}
+        <a className="link" href="/showcase">
+          Showcase →
+        </a>
+        {" · "}
         <a className="link" href="/how-it-works">
           How it works →
         </a>

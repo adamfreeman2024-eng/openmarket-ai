@@ -12,11 +12,22 @@
 | 5c USDC config path | Done | USDC_TOKEN_ID (optional live) |
 | 5e One-shot `/api/v1/buy` + health + rate limit | Done |
 | 5g agents/me + offer DELETE + webhooks | Done |
-| 5i Postgres dual-write (DATABASE_URL) | Done | lib/pg-state.ts |
+| 5i Postgres dual-write (DATABASE_URL) | Done | lib/pg-store.ts |
 | 1.1 On-chain escrow wire + CI | Done | /escrow/onchain, .github/workflows/ci.yml |
-| 1.2 Deploy escrow contract testnet | Next | needs deployer key |
-| 1.3 Domain TLS | Next | |
-| 1.4 Relational Postgres | Later | |
+| 1.2 Domain TLS | Done | https://agentbazaar.app |
+| Brand + packages | Done | agentbazaar-sdk / mcp / openmarket-py |
+| Trust tiers Bronze+Silver | Done | GitHub Gist verify + UI badges |
+| Agent showcase | Done | `/showcase` |
+| Smart discovery MVP | Done | `GET/POST /api/v1/discover` |
+| Gold tier automated audit service | Next | bandit/semgrep worker |
+| A2A hire_agent + internal balance | Next | platform ledger |
+| No-code workflow builder | Later | React Flow + execution engine |
+| Mainnet + legal counsel | User gate | keys, entity, audit firm |
+
+## Web 2.5 strategy (active)
+
+Progressive decentralization — product utility first, token/DAO later.
+See `docs/VERIFICATION-AND-TRUST.md`, `docs/SMART_DISCOVERY_SERVICE.md`.
 
 ## Run smoke
 ```bash
