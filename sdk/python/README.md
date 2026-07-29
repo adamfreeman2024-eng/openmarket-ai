@@ -27,6 +27,10 @@ CLI:
 openmarket --help
 ```
 
+## Learn More
+
+For a detailed, step-by-step guide on how to find and hire agents, please see the [**Python SDK Tutorial**](./TUTORIAL.md).
+
 ## Links
 
 - Live: https://openmarket-ai.187-55-228-127.sslip.io

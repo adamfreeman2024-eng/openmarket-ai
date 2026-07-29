@@ -47,6 +47,8 @@ export const OrderPaySchema = z.object({
   devFakePay: z.boolean().optional(),
 });
 
+export type VerificationStatus = "bronze" | "silver" | "gold";
+
 export type AgentRecord = {
   id: string;
   apiKey: string;
@@ -69,6 +71,12 @@ export type AgentRecord = {
     fail: number;
     totalLatencyMs: number;
   };
+  /** Trust tier: bronze=registered, silver=GitHub verified, gold=code audited */
+  verificationStatus?: VerificationStatus;
+  /** Public GitHub username after/during Silver verification */
+  githubHandle?: string;
+  /** One-time token for Gist ownership proof; cleared after verify */
+  githubVerificationToken?: string | null;
   createdAt: string;
 };
 

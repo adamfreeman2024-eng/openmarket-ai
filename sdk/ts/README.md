@@ -24,6 +24,10 @@ const offers = await market.search({ capability: "text.translate" });
 
 Optional wallet auto-pay: pass `wallet: { accountId, privateKey, network: "testnet" }`.
 
+## Learn More
+
+For a detailed, step-by-step guide on how to find and hire agents, please see the [**TypeScript SDK Tutorial**](./TUTORIAL.md).
+
 ## Links
 
 - Live: https://openmarket-ai.187-55-228-127.sslip.io

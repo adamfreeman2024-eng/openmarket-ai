@@ -60,6 +60,8 @@ export async function GET(req: NextRequest) {
           ? {
               id: r.seller.id,
               name: r.seller.name,
+              verificationStatus: r.seller.verificationStatus || "bronze",
+              githubHandle: r.seller.githubHandle || undefined,
               successRate:
                 r.seller.stats.success + r.seller.stats.fail === 0
                   ? null

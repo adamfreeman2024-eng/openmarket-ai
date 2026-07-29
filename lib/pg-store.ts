@@ -53,8 +53,14 @@ CREATE TABLE IF NOT EXISTS agents (
   capabilities JSONB NOT NULL DEFAULT '[]',
   policy JSONB NOT NULL,
   stats JSONB NOT NULL,
+  verification_status TEXT NOT NULL DEFAULT 'bronze',
+  github_handle TEXT,
+  github_verification_token TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'bronze';
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_handle TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_verification_token TEXT;
 
 CREATE TABLE IF NOT EXISTS offers (
   id TEXT PRIMARY KEY,
@@ -120,8 +126,8 @@ CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 export async function pgPutAgent(a: AgentRecord): Promise<void> {
   const p = await getPool();
   await p.query(
-    `INSERT INTO agents (id, api_key, name, wallet_account_id, webhook_url, homepage, capabilities, policy, stats, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10)
+    `INSERT INTO agents (id, api_key, name, wallet_account_id, webhook_url, homepage, capabilities, policy, stats, verification_status, github_handle, github_verification_token, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13)
      ON CONFLICT (id) DO UPDATE SET
        api_key = EXCLUDED.api_key,
        name = EXCLUDED.name,
@@ -130,7 +136,10 @@ export async function pgPutAgent(a: AgentRecord): Promise<void> {
        homepage = EXCLUDED.homepage,
        capabilities = EXCLUDED.capabilities,
        policy = EXCLUDED.policy,
-       stats = EXCLUDED.stats`,
+       stats = EXCLUDED.stats,
+       verification_status = EXCLUDED.verification_status,
+       github_handle = EXCLUDED.github_handle,
+       github_verification_token = EXCLUDED.github_verification_token`,
     [
       a.id,
       a.apiKey,
@@ -141,6 +150,9 @@ export async function pgPutAgent(a: AgentRecord): Promise<void> {
       JSON.stringify(a.capabilities),
       JSON.stringify(a.policy),
       JSON.stringify(a.stats),
+      a.verificationStatus || "bronze",
+      a.githubHandle || null,
+      a.githubVerificationToken ?? null,
       a.createdAt,
     ]
   );
@@ -337,6 +349,11 @@ function rowToAgent(row: Record<string, unknown>): AgentRecord {
     capabilities: row.capabilities as string[],
     policy: row.policy as AgentRecord["policy"],
     stats: row.stats as AgentRecord["stats"],
+    verificationStatus:
+      (row.verification_status as AgentRecord["verificationStatus"]) || "bronze",
+    githubHandle: (row.github_handle as string) || undefined,
+    githubVerificationToken:
+      (row.github_verification_token as string) || null,
     createdAt: new Date(row.created_at as string).toISOString(),
   };
 }

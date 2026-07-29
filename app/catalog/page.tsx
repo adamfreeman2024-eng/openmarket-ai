@@ -50,7 +50,13 @@ export default async function CatalogPage() {
               </div>
               <p className="muted small">{r.offer.description}</p>
               <div className="muted small">
-                agent {r.seller?.name || r.offer.agentId} · successRate{" "}
+                agent {r.seller?.name || r.offer.agentId}
+                {" · "}
+                <span title="verification tier">
+                  {(r.seller as { verificationStatus?: string } | undefined)
+                    ?.verificationStatus || "bronze"}
+                </span>
+                {" · successRate "}
                 {(successRate * 100).toFixed(0)}% · sales {sales}
               </div>
             </div>

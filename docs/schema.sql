@@ -1,5 +1,5 @@
--- OpenMarket.ai — Postgres schema (Phase 6)
--- Use when DATABASE_URL is set (future adapter).
+-- AgentBazaar / OpenMarket — Postgres schema
+-- Used by lib/pg-store.ts when DATABASE_URL is set (also dual-writes from file store).
 
 CREATE TABLE IF NOT EXISTS agents (
   id TEXT PRIMARY KEY,
@@ -7,12 +7,19 @@ CREATE TABLE IF NOT EXISTS agents (
   name TEXT NOT NULL,
   wallet_account_id TEXT NOT NULL,
   webhook_url TEXT,
-  capabilities JSONB NOT NULL DEFAULT '[]',
   homepage TEXT,
+  capabilities JSONB NOT NULL DEFAULT '[]',
   policy JSONB NOT NULL,
   stats JSONB NOT NULL,
+  verification_status TEXT NOT NULL DEFAULT 'bronze',
+  github_handle TEXT,
+  github_verification_token TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'bronze';
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_handle TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_verification_token TEXT;
 
 CREATE TABLE IF NOT EXISTS offers (
   id TEXT PRIMARY KEY,
@@ -69,3 +76,15 @@ CREATE TABLE IF NOT EXISTS audit_events (
 );
 
 CREATE INDEX IF NOT EXISTS audit_at_idx ON audit_events(at DESC);
+
+-- Gold tier audit history (future automated SAST service)
+CREATE TABLE IF NOT EXISTS agent_audits (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id),
+  git_repository_url TEXT NOT NULL,
+  commit_hash TEXT NOT NULL,
+  status TEXT NOT NULL,
+  result_summary TEXT,
+  full_report JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

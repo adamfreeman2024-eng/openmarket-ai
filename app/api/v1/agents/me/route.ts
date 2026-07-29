@@ -30,6 +30,9 @@ export async function GET(req: NextRequest) {
         spentDay: agent.policy.spentDay,
       },
       stats: agent.stats,
+      verificationStatus: agent.verificationStatus || "bronze",
+      githubHandle: agent.githubHandle || null,
+      githubVerificationPending: Boolean(agent.githubVerificationToken),
       createdAt: agent.createdAt,
     },
   });

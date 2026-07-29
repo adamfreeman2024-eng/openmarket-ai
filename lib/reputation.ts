@@ -131,7 +131,16 @@ function computeBadges(
   const releasedEscrows = agentEscrows.filter((e) => e.status === "released").length;
   const disputedEscrows = agentEscrows.filter((e) => e.status === "disputed").length;
 
+  const tier = agent.verificationStatus || "bronze";
   return [
+    {
+      id: "github_silver",
+      label: "GitHub Verified",
+      icon: "🔷",
+      description: "Silver tier — public GitHub ownership verified",
+      earned: tier === "silver" || tier === "gold",
+      boost: 12,
+    },
     {
       id: "verified",
       label: "Verified",
@@ -163,6 +172,14 @@ function computeBadges(
       description: "0 disputes in lifetime",
       earned: disputedEscrows === 0 && agentEscrows.length >= 5,
       boost: 5,
+    },
+    {
+      id: "gold_audited",
+      label: "Code Audited",
+      icon: "🥇",
+      description: "Gold tier — automated security audit passed",
+      earned: tier === "gold",
+      boost: 25,
     },
   ];
 }

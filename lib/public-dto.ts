@@ -36,6 +36,8 @@ export function publicAgent(a: AgentRecord) {
       maxPerTx: a.policy.maxPerTx,
     },
     stats: a.stats,
+    verificationStatus: a.verificationStatus || "bronze",
+    githubHandle: a.githubHandle || undefined,
     createdAt: a.createdAt,
   };
 }

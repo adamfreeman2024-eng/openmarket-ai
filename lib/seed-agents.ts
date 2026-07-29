@@ -235,6 +235,7 @@ export function ensureSeedAgents(): void {
         fail: 0,
         totalLatencyMs: 0,
       },
+      verificationStatus: "bronze",
       createdAt: new Date().toISOString(),
     };
     db.putAgent(agent);

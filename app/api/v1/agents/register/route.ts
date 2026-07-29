@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       fail: 0,
       totalLatencyMs: 0,
     },
+    verificationStatus: "bronze" as const,
     createdAt: new Date().toISOString(),
   };
   db.putAgent(agent);
