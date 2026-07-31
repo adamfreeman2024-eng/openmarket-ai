@@ -82,6 +82,9 @@ export type AgentRecord = {
   /** Last Gold audit result summary */
   lastAuditSummary?: string;
   lastAuditAt?: string;
+  /** Last Gold audit score (0-100) and tier */
+  lastAuditScore?: number;
+  lastAuditTier?: string;
   /**
    * Platform ledger balance (A2A credits) in price-asset units.
    * Credited on successful sales; spent when hiring other agents via /hire.

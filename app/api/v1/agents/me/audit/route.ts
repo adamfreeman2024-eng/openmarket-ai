@@ -48,14 +48,18 @@ export async function POST(req: NextRequest) {
   }
 
   const current: VerificationStatus = agent.verificationStatus || "bronze";
-  const next: VerificationStatus =
-    result.pass ? "gold" : current === "gold" ? "gold" : current;
+  let next: VerificationStatus = current;
+  if (result.tier === "gold") next = "gold";
+  else if (result.tier === "silver" && current === "bronze") next = "silver";
+  // A bronze result never downgrades an already-earned tier.
 
   const updated = {
     ...agent,
     auditRepositoryUrl: result.repository,
     lastAuditSummary: result.summary,
     lastAuditAt: new Date().toISOString(),
+    lastAuditScore: result.score,
+    lastAuditTier: result.tier,
     verificationStatus: next,
   };
   db.putAgent(updated);
@@ -63,6 +67,8 @@ export async function POST(req: NextRequest) {
     agentId: agent.id,
     repository: result.repository,
     pass: result.pass,
+    score: result.score,
+    tier: result.tier,
     filesScanned: result.filesScanned,
     findings: result.findings.length,
     commitSha: result.commitSha || null,
@@ -75,10 +81,14 @@ export async function POST(req: NextRequest) {
     repository: result.repository,
     commitSha: result.commitSha || null,
     filesScanned: result.filesScanned,
+    score: result.score,
+    tier: result.tier,
+    breakdown: result.breakdown,
+    languages: result.languages,
     findings: result.findings,
     summary: result.summary,
     message: result.pass
       ? "Gold tier granted — repository passed static audit."
-      : "Audit found critical findings. Fix them and resubmit.",
+      : `Audit failed (${result.tier.toUpperCase()}, ${result.score}/100). Fix findings and resubmit.`,
   });
 }

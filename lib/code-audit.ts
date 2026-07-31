@@ -1,13 +1,26 @@
 /**
- * Lightweight Gold-tier static audit of a public GitHub repository.
- * No arbitrary URL fetch (SSRF-safe): GitHub API + raw.githubusercontent.com only.
+ * Gold V2 audit engine — language-aware static security analysis.
+ * Modeled on bandit (Python), semgrep (JS/TS), Slither-lite (Solidity).
+ * SSRF-safe: GitHub API + raw.githubusercontent.com only.
  */
+
+export type Severity = "critical" | "high" | "medium" | "low";
+
 export type AuditFinding = {
-  severity: "critical" | "high" | "medium" | "low";
+  severity: Severity;
   file: string;
   rule: string;
   detail: string;
 };
+
+export type AuditBreakdown = {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+};
+
+export type AuditTier = "gold" | "silver" | "bronze";
 
 export type AuditResult = {
   ok: boolean;
@@ -17,45 +30,352 @@ export type AuditResult = {
   filesScanned: number;
   findings: AuditFinding[];
   summary: string;
+  score: number;
+  tier: AuditTier;
+  breakdown: AuditBreakdown;
+  languages: Record<string, number>;
 };
 
-const CRITICAL_RULES: Array<{ id: string; re: RegExp; detail: string }> = [
+type Rule = {
+  id: string;
+  re: RegExp;
+  detail: string;
+  severity: Severity;
+};
+
+export const SEVERITY_WEIGHT: Record<Severity, number> = {
+  critical: 40,
+  high: 20,
+  medium: 8,
+  low: 2,
+};
+
+const COMMON_RULES: Rule[] = [
   {
     id: "private_key_pem",
-    re: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+    re: /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/,
     detail: "PEM private key material in source",
+    severity: "critical",
   },
   {
     id: "eth_private_key",
-    re: /(?:private[_-]?key|secret[_-]?key)\s*[:=]\s*['\"]0x[a-fA-F0-9]{64}['\"]/,
+    re: /(?:private[_-]?key|secret[_-]?key)\s*[:=]\s*['"]0x[a-fA-F0-9]{64}['"]/,
     detail: "Likely hardcoded EVM private key",
+    severity: "critical",
   },
   {
-    id: "aws_key",
+    id: "aws_access_key",
     re: /AKIA[0-9A-Z]{16}/,
-    detail: "AWS access key id pattern",
+    detail: "AWS access key ID",
+    severity: "critical",
+  },
+  {
+    id: "google_api_key",
+    re: /AIza[0-9A-Za-z_-]{35}/,
+    detail: "Google API key",
+    severity: "high",
+  },
+  {
+    id: "github_token",
+    re: /ghp_[0-9A-Za-z]{36}/,
+    detail: "GitHub personal access token",
+    severity: "critical",
+  },
+  {
+    id: "slack_token",
+    re: /xox[baprs]-[0-9A-Za-z-]{10,}/,
+    detail: "Slack token",
+    severity: "high",
   },
   {
     id: "generic_secret_assign",
-    re: /(?:api[_-]?key|secret|password|token)\s*[:=]\s*['\"][^'\"]{12,}['\"]/i,
+    re: /(?:api[_-]?key|secret|password|passwd|token)\s*[:=]\s*['"][^'"]{12,}['"]/i,
     detail: "Hardcoded secret-like assignment",
+    severity: "high",
   },
   {
-    id: "shell_rm_rf",
-    re: /rm\s+-rf\s+\/(?:\s|$|['\"])/,
+    id: "destructive_rm",
+    re: /rm\s+-rf\s+\/(?:\s|$|['"])/,
     detail: "Destructive rm -rf /",
+    severity: "critical",
   },
   {
-    id: "eval_use",
-    re: /\beval\s*\(/,
-    detail: "Use of eval()",
-  },
-  {
-    id: "child_process_exec",
-    re: /child_process|execSync\s*\(|exec\s*\(\s*[`'"].*\$\{/,
-    detail: "Risky process execution pattern",
+    id: "sql_concat",
+    re: /(?:SELECT|INSERT|UPDATE|DELETE)\s+[^;]{0,120}["'`]\s*\+/i,
+    detail: "SQL built via string concatenation (injection risk)",
+    severity: "high",
   },
 ];
+
+const PYTHON_RULES: Rule[] = [
+  {
+    id: "py_pickle",
+    re: /pickle\.(?:loads?|dumps?)\s*\(/,
+    detail: "pickle deserialization (RCE risk)",
+    severity: "critical",
+  },
+  {
+    id: "py_yaml_unsafe",
+    re: /yaml\.unsafe_load\s*\(/,
+    detail: "Unsafe YAML deserialization",
+    severity: "critical",
+  },
+  {
+    id: "py_yaml_load",
+    re: /yaml\.load\s*\(/,
+    detail: "yaml.load without explicit safe Loader",
+    severity: "high",
+  },
+  {
+    id: "py_subprocess_shell",
+    re: /subprocess\.(?:call|run|Popen|check_call|check_output)\s*\([^)]*\bshell\s*=\s*True/i,
+    detail: "subprocess with shell=True",
+    severity: "high",
+  },
+  {
+    id: "py_os_system",
+    re: /\bos\.system\s*\(/,
+    detail: "os.system shell call",
+    severity: "high",
+  },
+  {
+    id: "py_eval",
+    re: /\beval\s*\(/,
+    detail: "eval() of dynamic code",
+    severity: "high",
+  },
+  {
+    id: "py_exec",
+    re: /\bexec\s*\(/,
+    detail: "exec() of dynamic code",
+    severity: "high",
+  },
+  {
+    id: "py_flask_debug",
+    re: /(?:app|Flask)\.run\s*\([^)]*\bdebug\s*=\s*True/i,
+    detail: "Flask debug mode enabled",
+    severity: "high",
+  },
+  {
+    id: "py_ssti",
+    re: /render_template_string\s*\(/,
+    detail: "Jinja2 template injection risk",
+    severity: "medium",
+  },
+  {
+    id: "py_weak_hash",
+    re: /hashlib\.(?:md5|sha1)\s*\(/,
+    detail: "Weak hash (MD5/SHA1)",
+    severity: "medium",
+  },
+  {
+    id: "py_tempfile_mktemp",
+    re: /tempfile\.mktemp\s*\(/,
+    detail: "Insecure temp file creation",
+    severity: "medium",
+  },
+  {
+    id: "py_assert",
+    re: /^\s*assert\s+/m,
+    detail: "assert used (disabled under -O)",
+    severity: "low",
+  },
+  {
+    id: "py_bare_except",
+    re: /^\s*except\s*:/m,
+    detail: "Bare except clause",
+    severity: "low",
+  },
+];
+
+const JS_RULES: Rule[] = [
+  {
+    id: "js_dangerous_html",
+    re: /dangerouslySetInnerHTML/,
+    detail: "React dangerouslySetInnerHTML (XSS risk)",
+    severity: "high",
+  },
+  {
+    id: "js_inner_html",
+    re: /\.innerHTML\s*=/,
+    detail: "innerHTML assignment (XSS risk)",
+    severity: "medium",
+  },
+  {
+    id: "js_document_write",
+    re: /document\.write\s*\(/,
+    detail: "document.write (XSS risk)",
+    severity: "medium",
+  },
+  {
+    id: "js_eval",
+    re: /\beval\s*\(/,
+    detail: "eval() of dynamic code",
+    severity: "high",
+  },
+  {
+    id: "js_new_function",
+    re: /new\s+Function\s*\(/,
+    detail: "new Function() code execution",
+    severity: "high",
+  },
+  {
+    id: "js_child_process_exec",
+    re: /child_process\.(?:exec|execSync)\s*\(/,
+    detail: "child_process exec with shell",
+    severity: "high",
+  },
+  {
+    id: "js_child_process",
+    re: /child_process/,
+    detail: "child_process usage",
+    severity: "medium",
+  },
+  {
+    id: "js_proto_pollution",
+    re: /__proto__|constructor\.prototype/,
+    detail: "Prototype pollution pattern",
+    severity: "high",
+  },
+  {
+    id: "js_postmessage_wildcard",
+    re: /postMessage\s*\([^)]*['"]\*['"]/,
+    detail: "postMessage to wildcard origin",
+    severity: "low",
+  },
+];
+
+const SOLIDITY_RULES: Rule[] = [
+  {
+    id: "sol_tx_origin",
+    re: /\btx\.origin\b/,
+    detail: "tx.origin authorization (phishing risk)",
+    severity: "critical",
+  },
+  {
+    id: "sol_delegatecall",
+    re: /\bdelegatecall\b/,
+    detail: "delegatecall (storage corruption risk)",
+    severity: "critical",
+  },
+  {
+    id: "sol_selfdestruct",
+    re: /\b(?:selfdestruct|suicide)\s*\(/,
+    detail: "selfdestruct",
+    severity: "critical",
+  },
+  {
+    id: "sol_unchecked_call",
+    re: /\.call\s*\{[^}]*value/i,
+    detail: "Unchecked external call with value",
+    severity: "high",
+  },
+  {
+    id: "sol_transfer",
+    re: /\.transfer\s*\(/,
+    detail: "transfer() gas limit issues",
+    severity: "medium",
+  },
+  {
+    id: "sol_send",
+    re: /\.send\s*\(/,
+    detail: "send() return value ignored risk",
+    severity: "medium",
+  },
+  {
+    id: "sol_assembly",
+    re: /\bassembly\b/,
+    detail: "Inline assembly",
+    severity: "medium",
+  },
+  {
+    id: "sol_timestamp",
+    re: /\bblock\.timestamp\b/,
+    detail: "Timestamp dependence",
+    severity: "low",
+  },
+  {
+    id: "sol_block_number",
+    re: /\bblock\.number\b/,
+    detail: "Block number dependence",
+    severity: "low",
+  },
+];
+
+function detectLanguage(path: string): string {
+  const p = path.toLowerCase();
+  if (p.endsWith(".py") || p.endsWith(".pyi")) return "python";
+  if (p.endsWith(".js") || p.endsWith(".jsx") || p.endsWith(".mjs") || p.endsWith(".cjs"))
+    return "javascript";
+  if (p.endsWith(".ts") || p.endsWith(".tsx")) return "typescript";
+  if (p.endsWith(".sol")) return "solidity";
+  if (p.endsWith(".go")) return "go";
+  if (p.endsWith(".rs")) return "rust";
+  if (p.endsWith(".sh") || p.endsWith(".bash")) return "shell";
+  if (p.endsWith(".yml") || p.endsWith(".yaml")) return "yaml";
+  if (p.endsWith(".json")) return "json";
+  if (p.endsWith(".env") || p === ".env") return "env";
+  return "other";
+}
+
+function rulesFor(lang: string): Rule[] {
+  const base = COMMON_RULES;
+  if (lang === "python") return [...base, ...PYTHON_RULES];
+  if (lang === "javascript" || lang === "typescript") return [...base, ...JS_RULES];
+  if (lang === "solidity") return [...base, ...SOLIDITY_RULES];
+  return base;
+}
+
+/**
+ * Scan a single file's text content against language-aware rules.
+ * Exported for unit testing without network access.
+ */
+export function scanText(path: string, text: string): AuditFinding[] {
+  const lang = detectLanguage(path);
+  const findings: AuditFinding[] = [];
+
+  if (lang === "env" && !path.endsWith(".example") && !path.endsWith(".sample")) {
+    findings.push({
+      severity: "high",
+      file: path,
+      rule: "env_file_committed",
+      detail: "Environment file committed to repository",
+    });
+  }
+
+  for (const rule of rulesFor(lang)) {
+    if (rule.re.test(text)) {
+      findings.push({
+        severity: rule.severity,
+        file: path,
+        rule: rule.id,
+        detail: rule.detail,
+      });
+    }
+  }
+  return findings;
+}
+
+export function computeScore(findings: AuditFinding[]): number {
+  const total = findings.reduce((s, f) => s + SEVERITY_WEIGHT[f.severity], 0);
+  return Math.max(0, 100 - total);
+}
+
+export function tierFor(score: number, findings: AuditFinding[]): AuditTier {
+  const hasCriticalHigh = findings.some(
+    (f) => f.severity === "critical" || f.severity === "high"
+  );
+  if (hasCriticalHigh) return "bronze";
+  if (score >= 85) return "gold";
+  if (score >= 65) return "silver";
+  return "bronze";
+}
+
+export function breakdownFor(findings: AuditFinding[]): AuditBreakdown {
+  const b: AuditBreakdown = { critical: 0, high: 0, medium: 0, low: 0 };
+  for (const f of findings) b[f.severity] += 1;
+  return b;
+}
 
 function parseGithubRepo(url: string): { owner: string; repo: string } | null {
   try {
@@ -82,6 +402,7 @@ const SCAN_EXT = new Set([
   ".mjs",
   ".cjs",
   ".py",
+  ".pyi",
   ".sol",
   ".go",
   ".rs",
@@ -104,6 +425,10 @@ export async function auditPublicGithubRepo(
       filesScanned: 0,
       findings: [],
       summary: "Only public github.com owner/repo URLs are accepted",
+      score: 0,
+      tier: "bronze",
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
+      languages: {},
     };
   }
   const { owner, repo } = parsed;
@@ -111,7 +436,7 @@ export async function auditPublicGithubRepo(
 
   const headers = {
     Accept: "application/vnd.github+json",
-    "User-Agent": "AgentBazaar-GoldAudit/1.0",
+    "User-Agent": "AgentBazaar-GoldAudit/2.0",
   };
 
   const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
@@ -126,6 +451,10 @@ export async function auditPublicGithubRepo(
       filesScanned: 0,
       findings: [],
       summary: "Repository not found or private",
+      score: 0,
+      tier: "bronze",
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
+      languages: {},
     };
   }
   if (!repoRes.ok) {
@@ -136,6 +465,10 @@ export async function auditPublicGithubRepo(
       filesScanned: 0,
       findings: [],
       summary: `GitHub API error ${repoRes.status}`,
+      score: 0,
+      tier: "bronze",
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
+      languages: {},
     };
   }
   const repoJson = (await repoRes.json()) as {
@@ -150,6 +483,10 @@ export async function auditPublicGithubRepo(
       filesScanned: 0,
       findings: [],
       summary: "Repository is private",
+      score: 0,
+      tier: "bronze",
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
+      languages: {},
     };
   }
   const branch = repoJson.default_branch || "main";
@@ -166,6 +503,10 @@ export async function auditPublicGithubRepo(
       filesScanned: 0,
       findings: [],
       summary: `Failed to list tree (${treeRes.status})`,
+      score: 0,
+      tier: "bronze",
+      breakdown: { critical: 0, high: 0, medium: 0, low: 0 },
+      languages: {},
     };
   }
   const treeJson = (await treeRes.json()) as {
@@ -186,6 +527,7 @@ export async function auditPublicGithubRepo(
     .slice(0, 40);
 
   const findings: AuditFinding[] = [];
+  const languages: Record<string, number> = {};
   let scanned = 0;
 
   for (const f of files) {
@@ -193,36 +535,30 @@ export async function auditPublicGithubRepo(
     const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
     try {
       const rawRes = await fetch(rawUrl, {
-        headers: { "User-Agent": "AgentBazaar-GoldAudit/1.0" },
+        headers: { "User-Agent": "AgentBazaar-GoldAudit/2.0" },
         signal: AbortSignal.timeout(12_000),
       });
       if (!rawRes.ok) continue;
       const text = await rawRes.text();
       scanned += 1;
-      for (const rule of CRITICAL_RULES) {
-        if (rule.re.test(text)) {
-          findings.push({
-            severity: "critical",
-            file: path,
-            rule: rule.id,
-            detail: rule.detail,
-          });
-        }
-      }
+      const lang = detectLanguage(path);
+      languages[lang] = (languages[lang] || 0) + 1;
+      findings.push(...scanText(path, text));
     } catch {
       // skip file
     }
   }
 
-  const critical = findings.filter(
-    (f) => f.severity === "critical" || f.severity === "high"
-  );
-  const pass = scanned > 0 && critical.length === 0;
+  const score = computeScore(findings);
+  const tier = tierFor(score, findings);
+  const breakdown = breakdownFor(findings);
+  const pass = tier === "gold";
+
   const summary = pass
-    ? `PASS — scanned ${scanned} files, 0 critical findings`
+    ? `PASS — ${tier.toUpperCase()} (${score}/100), scanned ${scanned} files, ${findings.length} finding(s)`
     : scanned === 0
       ? "FAIL — no scannable source files found"
-      : `FAIL — ${critical.length} critical finding(s) in ${scanned} files`;
+      : `FAIL — ${tier.toUpperCase()} (${score}/100), ${findings.length} finding(s) in ${scanned} files`;
 
   return {
     ok: true,
@@ -232,5 +568,9 @@ export async function auditPublicGithubRepo(
     filesScanned: scanned,
     findings: findings.slice(0, 50),
     summary,
+    score,
+    tier,
+    breakdown,
+    languages,
   };
 }

@@ -41,6 +41,8 @@ export function publicAgent(a: AgentRecord) {
     auditRepositoryUrl: a.auditRepositoryUrl || undefined,
     lastAuditSummary: a.lastAuditSummary || undefined,
     lastAuditAt: a.lastAuditAt || undefined,
+    lastAuditScore: a.lastAuditScore || undefined,
+    lastAuditTier: a.lastAuditTier || undefined,
     createdAt: a.createdAt,
   };
 }

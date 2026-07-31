@@ -17,6 +17,7 @@
     "e2e:expire": "tsx scripts/e2e-expire.ts",
     "smoke": "tsx scripts/smoke-local.ts",
     "test:workflow": "OM_DATA_DIR=/tmp/wf-test tsx scripts/unit-workflow.ts",
+    "test:audit": "npx tsx scripts/unit-audit.ts",
     "live:probe": "bash scripts/live-probe.sh",
     "test:settlement": "tsx scripts/unit-settlement.ts",
     "test": "vitest run",
