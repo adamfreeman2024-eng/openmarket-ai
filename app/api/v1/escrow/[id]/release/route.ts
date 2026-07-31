@@ -4,6 +4,7 @@ import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { z } from "zod";
 import { ALLOW_DEV_FAKE_SETTLEMENT, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { onChainRelease, hashScanUrl } from "@/lib/onchain-escrow-live";
+import { creditSale } from "@/lib/agent-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +101,8 @@ export async function POST(
       seller.stats.success += 1;
       db.putAgent(seller);
     }
+    // Platform internal ledger — credit seller on successful sale
+    creditSale(escrow.sellerAgentId, order.totalAmount || escrow.amount, order.id);
   }
 
   audit("escrow.released", { escrowId: id, orderId: escrow.orderId, onChain: onChainResult });

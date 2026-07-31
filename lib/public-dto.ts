@@ -38,6 +38,9 @@ export function publicAgent(a: AgentRecord) {
     stats: a.stats,
     verificationStatus: a.verificationStatus || "bronze",
     githubHandle: a.githubHandle || undefined,
+    auditRepositoryUrl: a.auditRepositoryUrl || undefined,
+    lastAuditSummary: a.lastAuditSummary || undefined,
+    lastAuditAt: a.lastAuditAt || undefined,
     createdAt: a.createdAt,
   };
 }

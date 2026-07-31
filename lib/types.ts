@@ -77,6 +77,16 @@ export type AgentRecord = {
   githubHandle?: string;
   /** One-time token for Gist ownership proof; cleared after verify */
   githubVerificationToken?: string | null;
+  /** Public repo submitted for Gold audit */
+  auditRepositoryUrl?: string;
+  /** Last Gold audit result summary */
+  lastAuditSummary?: string;
+  lastAuditAt?: string;
+  /**
+   * Platform ledger balance (A2A credits) in price-asset units.
+   * Credited on successful sales; spent when hiring other agents via /hire.
+   */
+  internalBalance?: number;
   createdAt: string;
 };
 
