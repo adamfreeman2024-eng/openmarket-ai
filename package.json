@@ -16,6 +16,7 @@
     "e2e:escrow-lifecycle": "tsx scripts/e2e-escrow-lifecycle.ts",
     "e2e:expire": "tsx scripts/e2e-expire.ts",
     "smoke": "tsx scripts/smoke-local.ts",
+    "test:workflow": "OM_DATA_DIR=/tmp/wf-test tsx scripts/unit-workflow.ts",
     "live:probe": "bash scripts/live-probe.sh",
     "test:settlement": "tsx scripts/unit-settlement.ts",
     "test": "vitest run",
@@ -33,6 +34,7 @@
   },
   "dependencies": {
     "@hiero-ledger/sdk": "^2.79.0",
+    "@xyflow/react": "^12.11.2",
     "ethers": "^6.13.0",
     "google-auth-library": "^10.9.1",
     "ioredis": "^5.11.1",
