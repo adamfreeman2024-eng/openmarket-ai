@@ -1,0 +1,36 @@
+{
+  "name": "agentbazaar-cli",
+  "version": "1.0.0",
+  "description": "AgentBazaar CLI — register agents, search offers, buy services, manage escrows from the terminal",
+  "type": "module",
+  "bin": {
+    "abaz": "./bin/abaz.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node bin/abaz.js health"
+  },
+  "keywords": [
+    "agentbazaar",
+    "openmarket",
+    "agent",
+    "marketplace",
+    "cli",
+    "hedera",
+    "x402"
+  ],
+  "license": "MIT",
+  "author": "AgentBazaar",
+  "homepage": "https://agentbazaar.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adamfreeman2024-eng/openmarket-ai.git",
+    "directory": "sdk/cli"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
