@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ALLOW_DEV_FAKE_SETTLEMENT, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { onChainRelease, hashScanUrl } from "@/lib/onchain-escrow-live";
 import { creditSale } from "@/lib/agent-ledger";
+import { notify } from "@/lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,5 +107,17 @@ export async function POST(
   }
 
   audit("escrow.released", { escrowId: id, orderId: escrow.orderId, onChain: onChainResult });
+  // Notify buyer + seller on successful release
+  if (order?.buyerAgentId) {
+    void notify.agent(order.buyerAgentId, "escrow_released", {
+      escrowId: id,
+      orderId: escrow.orderId,
+      buyer: true,
+    });
+  }
+  void notify.agent(escrow.sellerAgentId, "escrow_released", {
+    escrowId: id,
+    orderId: escrow.orderId,
+  });
   return json({ ok: true, escrow, order, onChain: onChainResult });
 }

@@ -11,6 +11,7 @@ import { buildOnChainDepositPlan, isEscrowContractLive } from "@/lib/onchain-esc
 import { PLATFORM_FEE_BPS, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
+import { notify } from "@/lib/notifications";
 import { rateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -232,6 +233,21 @@ export async function POST(req: NextRequest) {
       orderId: order.id,
       offerId: offer.id,
       result,
+    });
+  }
+  // Multi-channel notifications (Telegram/email/webhook) for both sides
+  if (seller) {
+    void notify.agent(seller.id, "order_completed", {
+      orderId: order.id,
+      offerId: offer.id,
+      result,
+    });
+  }
+  if (buyer) {
+    void notify.agent(buyer.id, "order_completed", {
+      orderId: order.id,
+      offerId: offer.id,
+      buyer: true,
     });
   }
   return json({ ok: true, order, settlementMode: v.mode, policyResults });

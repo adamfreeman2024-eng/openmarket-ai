@@ -6,6 +6,10 @@ export const AgentRegisterSchema = z.object({
   webhookUrl: z.string().url().optional(),
   capabilities: z.array(z.string().min(1).max(64)).min(1).max(32),
   homepage: z.string().url().optional(),
+  /** Telegram chat id for order/escrow notifications (e.g. "429384890") */
+  telegramChatId: z.string().min(1).max(64).optional(),
+  /** Email for order/escrow notifications */
+  email: z.string().email().optional(),
   policy: z
     .object({
       dailySpendLimit: z.number().positive().optional(),
@@ -57,6 +61,10 @@ export type AgentRecord = {
   webhookUrl?: string;
   capabilities: string[];
   homepage?: string;
+  /** Telegram chat id for notifications (order completed, escrow release, disputes) */
+  telegramChatId?: string;
+  /** Email for notifications */
+  email?: string;
   policy: {
     dailySpendLimit: number;
     maxPerTx: number;

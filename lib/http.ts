@@ -11,7 +11,7 @@ export function json(data: unknown, status = 200) {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers":
         "Content-Type, Authorization, X-Api-Key, X-Request-Id",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS,DELETE",
+      "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS,DELETE",
     },
   });
 }

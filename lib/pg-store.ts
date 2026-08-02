@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS agents (
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS verification_status TEXT NOT NULL DEFAULT 'bronze';
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_handle TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS github_verification_token TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS email TEXT;
 
 CREATE TABLE IF NOT EXISTS offers (
   id TEXT PRIMARY KEY,
@@ -126,8 +128,8 @@ CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 export async function pgPutAgent(a: AgentRecord): Promise<void> {
   const p = await getPool();
   await p.query(
-    `INSERT INTO agents (id, api_key, name, wallet_account_id, webhook_url, homepage, capabilities, policy, stats, verification_status, github_handle, github_verification_token, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13)
+    `INSERT INTO agents (id, api_key, name, wallet_account_id, webhook_url, homepage, capabilities, policy, stats, verification_status, github_handle, github_verification_token, telegram_chat_id, email, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12, $13, $14, $15)
      ON CONFLICT (id) DO UPDATE SET
        api_key = EXCLUDED.api_key,
        name = EXCLUDED.name,
@@ -139,7 +141,9 @@ export async function pgPutAgent(a: AgentRecord): Promise<void> {
        stats = EXCLUDED.stats,
        verification_status = EXCLUDED.verification_status,
        github_handle = EXCLUDED.github_handle,
-       github_verification_token = EXCLUDED.github_verification_token`,
+       github_verification_token = EXCLUDED.github_verification_token,
+       telegram_chat_id = EXCLUDED.telegram_chat_id,
+       email = EXCLUDED.email`,
     [
       a.id,
       a.apiKey,
@@ -153,6 +157,8 @@ export async function pgPutAgent(a: AgentRecord): Promise<void> {
       a.verificationStatus || "bronze",
       a.githubHandle || null,
       a.githubVerificationToken ?? null,
+      a.telegramChatId || null,
+      a.email || null,
       a.createdAt,
     ]
   );
@@ -354,6 +360,8 @@ function rowToAgent(row: Record<string, unknown>): AgentRecord {
     githubHandle: (row.github_handle as string) || undefined,
     githubVerificationToken:
       (row.github_verification_token as string) || null,
+    telegramChatId: (row.telegram_chat_id as string) || undefined,
+    email: (row.email as string) || undefined,
     createdAt: new Date(row.created_at as string).toISOString(),
   };
 }

@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
     webhookUrl: d.webhookUrl,
     capabilities: d.capabilities,
     homepage: d.homepage,
+    telegramChatId: d.telegramChatId,
+    email: d.email,
     policy: {
       dailySpendLimit: d.policy?.dailySpendLimit ?? 50,
       maxPerTx: d.policy?.maxPerTx ?? 5,
