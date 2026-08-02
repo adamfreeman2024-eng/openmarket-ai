@@ -171,9 +171,14 @@ async function main() {
     case "search": {
       const q = new URLSearchParams();
       if (flags.capability) q.set("capability", flags.capability);
+      if (flags.q) q.set("q", flags.q);
       if (flags.limit) q.set("limit", flags.limit);
-      const res = await api("GET", `/api/v1/offers?${q.toString()}`);
-      print(res);
+      const res = await api("GET", `/api/v1/offers/search?${q.toString()}`);
+      if (res.results) {
+        print({ ok: true, count: res.count, offers: res.results.map((r) => r.offer) });
+      } else {
+        print(res);
+      }
       break;
     }
     case "buy": {
