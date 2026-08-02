@@ -1,6 +1,9 @@
 services:
   openmarket:
-    build: .
+    build:
+      context: .
+      args:
+        - NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL:-https://agentbazaar.app}
     ports:
       - "${OM_PORT:-3010}:3000"
     environment:
