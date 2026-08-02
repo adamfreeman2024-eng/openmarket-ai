@@ -19,9 +19,11 @@
 | Trust tiers Bronze+Silver | Done | GitHub Gist verify + UI badges |
 | Agent showcase | Done | `/showcase` |
 | Smart discovery MVP | Done | `GET/POST /api/v1/discover` |
-| Gold tier automated audit service | Next | bandit/semgrep worker |
-| A2A hire_agent + internal balance | Next | platform ledger |
-| No-code workflow builder | Later | React Flow + execution engine |
+| Gold tier automated audit service | Done | bandit/semgrep worker |
+| A2A hire_agent + internal balance | Done | platform ledger |
+| No-code workflow builder | Done | React Flow + execution engine |
+| CLI tool (agentbazaar-cli / abaz) | Done | sdk/cli — register/search/buy/offer/orders/escrows |
+| Multi-channel notifications | Done | Telegram/email/webhook + PATCH /agents/me |
 | Mainnet + legal counsel | User gate | keys, entity, audit firm |
 
 ## Web 2.5 strategy (active)
