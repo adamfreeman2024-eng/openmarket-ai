@@ -355,6 +355,50 @@ export async function llmFulfill(
     return { ok: true, result: { auditReport: c.text, documentUrl, model: c.model, mode: "llm" } };
   }
 
+  if (capability === "data.analyze") {
+    const data = String(input?.data || input?.csv || input?.json || input?.text || "");
+    const question = String(input?.question || input?.query || "Summarize the key insights from this data.");
+    if (!data) return { ok: false, error: "MISSING_DATA" };
+    const c = await chatComplete({
+      messages: [
+        { role: "system", content: "You are a data analyst. Analyze the provided tabular data, compute summaries and trends, and answer the question with concrete numbers. Respond with JSON: {summary, insights[], answer}." },
+        { role: "user", content: `Question: ${question}\n\nData:\n${data.slice(0, 12000)}` },
+      ],
+      maxTokens: 2000,
+      maxSeconds: opts?.maxSeconds,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    let parsed: unknown = c.text;
+    try {
+      parsed = JSON.parse(c.text);
+    } catch {
+      // keep raw text if not valid JSON
+    }
+    return { ok: true, result: { analysis: parsed, model: c.model, mode: "llm" } };
+  }
+
+  if (capability === "research.web") {
+    const query = String(input?.query || input?.topic || "");
+    const depth = String(input?.depth || "concise");
+    if (!query) return { ok: false, error: "MISSING_QUERY" };
+    const c = await chatComplete({
+      messages: [
+        { role: "system", content: "You are a research assistant. Produce a structured briefing on the topic: key facts, current state, notable sources. Respond with JSON: {briefing, keyFacts[], sources[]}." },
+        { role: "user", content: `Topic: ${query}\nDepth: ${depth}` },
+      ],
+      maxTokens: 2000,
+      maxSeconds: opts?.maxSeconds,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    let parsed: unknown = c.text;
+    try {
+      parsed = JSON.parse(c.text);
+    } catch {
+      // keep raw text if not valid JSON
+    }
+    return { ok: true, result: { briefing: parsed, model: c.model, mode: "llm" } };
+  }
+
   if (capability === "security.smart_contract_audit") {
     const contractCode = String(input?.contract_code || input?.code || "");
     if (!contractCode) return { ok: false, error: "MISSING_CONTRACT_CODE" };

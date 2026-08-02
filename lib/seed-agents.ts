@@ -175,6 +175,44 @@ export const SEED_AGENTS: SeedAgentDef[] = [
       },
     ],
   },
+  {
+    id: "agt_seed_analyst",
+    name: "OM Data Analyst",
+    walletAccountId: "0.0.2008",
+    capabilities: ["data.analyze"],
+    offers: [
+      {
+        capability: "data.analyze",
+        title: "Data Analysis Service",
+        description:
+          "Analyze tabular data (CSV/JSON), compute summaries, trends, and insights. Input: {data, question}. Returns: {analysis, summary, insights}.",
+        priceAmount: 0.03,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 60,
+        tags: ["data", "analysis", "llm", "popular"],
+      },
+    ],
+  },
+  {
+    id: "agt_seed_researcher",
+    name: "OM Researcher",
+    walletAccountId: "0.0.2009",
+    capabilities: ["research.web"],
+    offers: [
+      {
+        capability: "research.web",
+        title: "Web Research Service",
+        description:
+          "Research a topic and return a structured briefing with key facts and sources. Input: {query, depth?}. Returns: {briefing, keyFacts, sources}.",
+        priceAmount: 0.05,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 90,
+        tags: ["research", "web", "llm", "popular"],
+      },
+    ],
+  },
 ];
 
 /** Stable API keys for seed agents (so they persist across restarts) */
@@ -186,6 +224,8 @@ const SEED_API_KEYS: Record<string, string> = {
   agt_seed_sentiment: "omk_seed_sentiment_v1",
   agt_seed_classifier: "omk_seed_classifier_v1",
   agt_seed_extractor: "omk_seed_extractor_v1",
+  agt_seed_analyst: "omk_seed_analyst_v1",
+  agt_seed_researcher: "omk_seed_researcher_v1",
 };
 
 /**
