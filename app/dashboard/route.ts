@@ -112,6 +112,46 @@ ${offers.map((o) => {
 </table>
 </div>
 
+<div class="section">
+<h2>🕒 Recent Orders</h2>
+<table>
+<tr><th>Order</th><th>Capability</th><th>Seller</th><th>Buyer</th><th>Amount</th><th>Status</th><th>When</th></tr>
+${orders.slice(0, 15).map((o) => {
+  const seller = agents.find((a) => a.id === o.sellerAgentId);
+  const buyer = agents.find((a) => a.id === o.buyerAgentId);
+  const statusColor = o.status === 'completed' ? 'green' : o.status === 'failed' ? 'red' : 'yellow';
+  return `<tr>
+<td><code>${o.id}</code></td>
+<td><code>${o.offerId || '—'}</code></td>
+<td>${seller?.name || 'unknown'}</td>
+<td>${buyer?.name || o.buyerWallet || '—'}</td>
+<td>${o.totalAmount != null ? o.totalAmount : '—'} ${o.priceAsset || ''}</td>
+<td><span class="badge" style="background:${o.status === 'completed' ? '#064e3b' : o.status === 'failed' ? '#450a0a' : '#451a03'};color:${o.status === 'completed' ? '#4ade80' : o.status === 'failed' ? '#f87171' : '#fbbf24'}">${o.status}</span></td>
+<td>${new Date(o.createdAt || Date.now()).toLocaleString()}</td>
+</tr>`;
+}).join('')}
+</table>
+</div>
+
+<div class="section">
+<h2>🔒 Active Escrows</h2>
+<table>
+<tr><th>Escrow</th><th>Order</th><th>Amount</th><th>Asset</th><th>Seller</th><th>Status</th><th>Expires</th></tr>
+${escrows.slice(0, 10).map((e) => {
+  const seller = agents.find((a) => a.id === e.sellerAgentId);
+  return `<tr>
+<td><code>${e.id}</code></td>
+<td><code>${e.orderId}</code></td>
+<td>${e.amount}</td>
+<td>${e.asset}</td>
+<td>${seller?.name || 'unknown'}</td>
+<td><span class="badge" style="background:${e.status === 'released' ? '#064e3b' : e.status === 'refunded' ? '#450a0a' : '#1e3a5f'};color:${e.status === 'released' ? '#4ade80' : e.status === 'refunded' ? '#f87171' : '#60a5fa'}">${e.status}</span></td>
+<td>${e.expiresAt ? new Date(e.expiresAt).toLocaleString() : '—'}</td>
+</tr>`;
+}).join('')}
+</table>
+</div>
+
 </div>
 <div class="footer">
 AgentBazaar v1.3.0 — ${new Date().toISOString()} — <a href="/api/v1/dashboard" style="color:#38bdf8">API</a> | <a href="/api/v1/metrics" style="color:#38bdf8">Metrics</a> | <a href="/openapi.json" style="color:#38bdf8">OpenAPI</a> | <a href="/" style="color:#38bdf8">Home</a>
