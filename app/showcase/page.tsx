@@ -143,6 +143,10 @@ function AgentRow({
       <div style={{ textAlign: "right" }}>
         <VerificationBadge status={agent.verificationStatus || "bronze"} />
         <div className="muted small" style={{ marginTop: 4 }}>
+          <a className="link" href={`/agent/${agent.id}`}>
+            profile
+          </a>
+          {" · "}
           <a className="link" href={`/api/v1/agents/${agent.id}`}>
             card
           </a>
