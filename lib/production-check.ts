@@ -18,7 +18,10 @@ export function productionChecks(): {
   const productionMode = nodeEnv === "production";
   const checks: Check[] = [];
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const site =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    "";
   const fake =
     process.env.ALLOW_DEV_FAKE_SETTLEMENT === "true" ||
     process.env.ALLOW_DEV_FAKE_SETTLEMENT === "1";
