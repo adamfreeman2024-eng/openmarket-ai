@@ -14,6 +14,8 @@
 import { db, newId } from "./store";
 import type { EscrowRecord } from "./store-types";
 import { log } from "./logger";
+import fs from "node:fs";
+import path from "node:path";
 
 export type DisputeRecord = {
   id: string;
@@ -38,8 +40,38 @@ export type DisputeRecord = {
   evidence?: { type: string; data: string }[];
 };
 
-// In-memory dispute store
+// Dispute store: in-memory + JSON file persistence (data/disputes.json)
+const DISPUTES_FILE =
+  process.env.OM_DATA_DIR && process.env.OM_DATA_DIR !== "."
+    ? path.join(process.env.OM_DATA_DIR, "disputes.json")
+    : path.join(process.cwd(), "data", "disputes.json");
+
 const disputes = new Map<string, DisputeRecord>();
+
+function loadDisputes(): void {
+  try {
+    if (!fs.existsSync(DISPUTES_FILE)) return;
+    const raw = fs.readFileSync(DISPUTES_FILE, "utf8");
+    const parsed = JSON.parse(raw) as DisputeRecord[];
+    for (const d of parsed) disputes.set(d.id, d);
+  } catch {
+    // corrupt/missing file — start empty
+  }
+}
+
+function persistDisputes(): void {
+  try {
+    const all = Array.from(disputes.values());
+    fs.mkdirSync(path.dirname(DISPUTES_FILE), { recursive: true });
+    const tmp = `${DISPUTES_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(all, null, 2));
+    fs.renameSync(tmp, DISPUTES_FILE);
+  } catch {
+    // persistence failure should not break the request
+  }
+}
+
+loadDisputes();
 
 export function createDispute(opts: {
   orderId: string;
@@ -73,6 +105,8 @@ export function createDispute(opts: {
     db.putEscrow(escrow);
   }
 
+  persistDisputes();
+
   log.info({
     disputeId: dispute.id,
     orderId: opts.orderId,
@@ -99,6 +133,7 @@ export function respondToDispute(
   dispute.updatedAt = new Date().toISOString();
 
   disputes.set(disputeId, dispute);
+  persistDisputes();
   log.info({ disputeId, sellerAgentId }, "Dispute responded");
 
   return dispute;
@@ -154,6 +189,7 @@ export function resolveDispute(
   }
 
   disputes.set(disputeId, dispute);
+  persistDisputes();
   log.info({ disputeId, resolution, resolvedBy }, "Dispute resolved");
 
   return dispute;
@@ -200,6 +236,7 @@ export function autoResolveStaleDisputes(): DisputeRecord[] {
     }
 
     disputes.set(dispute.id, dispute);
+    persistDisputes();
     log.info({ disputeId: dispute.id }, "Dispute auto-refunded (stale)");
   }
 

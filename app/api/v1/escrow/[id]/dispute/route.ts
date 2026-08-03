@@ -3,6 +3,7 @@ import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { z } from "zod";
 import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
+import { createDispute } from "@/lib/dispute";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +54,18 @@ export async function POST(
   escrow.disputeReason = parsed.data.reason;
   escrow.updatedAt = new Date().toISOString();
   db.putEscrow(escrow);
+
+  // Create a DisputeRecord for the resolution workflow (respond/resolve/auto-refund).
+  if (order) {
+    createDispute({
+      orderId: order.id,
+      escrowId: escrow.id,
+      buyerAgentId: order.buyerAgentId || "",
+      sellerAgentId: escrow.sellerAgentId,
+      reason: parsed.data.reason,
+      description: parsed.data.reason,
+    });
+  }
 
   if (order) {
     order.result = {
