@@ -10,6 +10,7 @@ import {
 } from "@/lib/http";
 import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 import { discoverForGoal } from "@/lib/smart-discovery";
+import { cache } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +48,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const cacheKey = `discover:${goal.slice(0, 200)}`;
+  const cached = await cache.get<Record<string, unknown>>(cacheKey);
+  if (cached) return json({ ok: true, ...cached });
+
   const result = await discoverForGoal(goal);
+  await cache.set(cacheKey, result, 60);
   return json({ ok: true, ...result });
 }
 
@@ -68,6 +74,11 @@ export async function GET(req: NextRequest) {
       400
     );
   }
+  const cacheKey = `discover:${goal.slice(0, 200)}`;
+  const cached = await cache.get<Record<string, unknown>>(cacheKey);
+  if (cached) return json({ ok: true, ...cached });
+
   const result = await discoverForGoal(goal);
+  await cache.set(cacheKey, result, 60);
   return json({ ok: true, ...result });
 }

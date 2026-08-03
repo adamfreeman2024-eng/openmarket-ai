@@ -13,6 +13,7 @@ import { assertAssetLive } from "@/lib/assets";
 import { publicOffer } from "@/lib/public-dto";
 import { parsePublicHttpUrl } from "@/lib/ssrf";
 import { redisRateLimit, clientKey } from "@/lib/rate-limit";
+import { cache } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,11 @@ export function OPTIONS() {
 /** GET /api/v1/offers — all active offers (no secret fields) */
 export async function GET() {
   ensureSeedCatalog();
-  return json({ ok: true, offers: db.listOffers().map(publicOffer) });
+  const cached = await cache.get<unknown>("offers:list");
+  if (cached) return json(cached);
+  const payload = { ok: true, offers: db.listOffers().map(publicOffer) };
+  await cache.set("offers:list", payload, 10);
+  return json(payload);
 }
 
 /** POST /api/v1/offers — seller creates listing (auth) */
@@ -74,5 +79,6 @@ export async function POST(req: NextRequest) {
   };
   db.putOffer(offer);
   audit("offer.create", { offerId: offer.id, agentId: agent.id });
+  await cache.del("offers:list");
   return json({ ok: true, offer: publicOffer(offer) });
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { cache } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,5 +39,6 @@ export async function DELETE(
   o.active = false;
   db.putOffer(o);
   audit("offer.deactivate", { offerId: id, agentId: agent.id });
+  await cache.del("offers:list");
   return json({ ok: true, offer: o });
 }
