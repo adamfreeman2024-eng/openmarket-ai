@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
-import { reputationForApi } from "@/lib/reputation";
+import { reputationV2ForApi } from "@/lib/reputation-v2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/agents/:id/reputation — public reputation profile */
+/** GET /api/v1/agents/:id/reputation — public reputation profile (V2: reviews + SLA) */
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ id: string }> }
@@ -25,8 +25,7 @@ export async function GET(
   const orderCount = orders.length;
   const completedOrders = orders.filter((o) => o.status === "completed");
 
-  const rep = reputationForApi(agent, escrows, orderCount);
-
+  const rep = reputationV2ForApi(agent, escrows, orderCount, orders);
   return json({
     ok: true,
     agent: {

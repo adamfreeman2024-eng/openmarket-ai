@@ -15,6 +15,8 @@ import {
   reputationForApi,
   type ReputationScore,
 } from "./reputation";
+import fs from "node:fs";
+import path from "node:path";
 
 // ─── Review Types ───
 export type Review = {
@@ -31,8 +33,42 @@ export type Review = {
   flagReason?: string;
 };
 
-// In-memory review store (in production, this would be in the database)
+// Review store: in-memory + JSON file persistence (data/reviews.json)
+const REVIEWS_FILE =
+  process.env.OM_DATA_DIR && process.env.OM_DATA_DIR !== "."
+    ? path.join(process.env.OM_DATA_DIR, "reviews.json")
+    : path.join(process.cwd(), "data", "reviews.json");
+
 const reviews = new Map<string, Review[]>();
+
+function loadReviews(): void {
+  try {
+    if (!fs.existsSync(REVIEWS_FILE)) return;
+    const raw = fs.readFileSync(REVIEWS_FILE, "utf8");
+    const parsed = JSON.parse(raw) as Review[];
+    for (const r of parsed) {
+      const list = reviews.get(r.agentId) || [];
+      list.push(r);
+      reviews.set(r.agentId, list);
+    }
+  } catch {
+    // corrupt/missing file — start empty
+  }
+}
+
+function persistReviews(): void {
+  try {
+    const all = [...reviews.values()].flat();
+    fs.mkdirSync(path.dirname(REVIEWS_FILE), { recursive: true });
+    const tmp = `${REVIEWS_FILE}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(all, null, 2));
+    fs.renameSync(tmp, REVIEWS_FILE);
+  } catch {
+    // persistence failure should not break the request
+  }
+}
+
+loadReviews();
 
 // ─── Review Management ───
 export function addReview(
@@ -56,6 +92,7 @@ export function addReview(
   const agentReviews = reviews.get(review.agentId) || [];
   agentReviews.push(fullReview);
   reviews.set(review.agentId, agentReviews);
+  persistReviews();
 
   return { ...fullReview, warning };
 }
@@ -157,9 +194,16 @@ export type SLAStats = {
   totalDeliveries: number;
 };
 
+type SLAOrder = {
+  sellerAgentId: string;
+  latencyMs?: number;
+  maxSeconds?: number;
+  status: string;
+};
+
 export function computeSLA(
   agent: AgentRecord,
-  orders: { sellerAgentId: string; latencyMs: number; maxSeconds?: number; status: string }[]
+  orders: SLAOrder[]
 ): SLAStats {
   const agentOrders = orders.filter(
     (o) => o.sellerAgentId === agent.id && o.status === "completed" && o.latencyMs
@@ -175,8 +219,8 @@ export function computeSLA(
   }
 
   const maxAllowedMs = (agentOrders[0].maxSeconds || 60) * 1000;
-  const onTime = agentOrders.filter((o) => o.latencyMs <= maxAllowedMs);
-  const totalLatency = agentOrders.reduce((sum, o) => sum + o.latencyMs, 0);
+  const onTime = agentOrders.filter((o) => o.latencyMs! <= maxAllowedMs);
+  const totalLatency = agentOrders.reduce((sum, o) => sum + (o.latencyMs || 0), 0);
 
   return {
     onTimeRate: onTime.length / agentOrders.length,
@@ -191,7 +235,7 @@ export function computeReputationV2(
   agent: AgentRecord,
   escrows: EscrowRecord[] = [],
   orderCount: number = 0,
-  orders: { sellerAgentId: string; latencyMs: number; maxSeconds?: number; status: string }[] = []
+  orders: SLAOrder[] = []
 ): ReputationScore & {
   reviews: ReturnType<typeof getReviewStats>;
   sla: SLAStats;
@@ -238,7 +282,7 @@ export function reputationV2ForApi(
   agent: AgentRecord,
   escrows: EscrowRecord[] = [],
   orderCount: number = 0,
-  orders: { sellerAgentId: string; latencyMs: number; maxSeconds?: number; status: string }[] = []
+  orders: SLAOrder[] = []
 ) {
   const rep = computeReputationV2(agent, escrows, orderCount, orders);
   const base = reputationForApi(agent, escrows, orderCount);
