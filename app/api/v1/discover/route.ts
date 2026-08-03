@@ -8,7 +8,7 @@ import {
   readJsonBody,
   rateLimitResponse,
 } from "@/lib/http";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 import { discoverForGoal } from "@/lib/smart-discovery";
 
 export const runtime = "nodejs";
@@ -25,7 +25,7 @@ export function OPTIONS() {
  */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const rl = rateLimit(`discover:${clientKey(req)}`, 30, 60_000);
+  const rl = await redisRateLimit(`discover:${clientKey(req)}`, 30, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   // Optional auth — if key present must be valid
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 /** GET /api/v1/discover?goal=... — same as POST for easy agent probing */
 export async function GET(req: NextRequest) {
   ensureSeedCatalog();
-  const rl = rateLimit(`discover:${clientKey(req)}`, 30, 60_000);
+  const rl = await redisRateLimit(`discover:${clientKey(req)}`, 30, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
   const goal = (req.nextUrl.searchParams.get("goal") || "").trim();
   if (goal.length < 3) {

@@ -16,6 +16,7 @@ services:
       - ALLOW_DEV_FAKE_SETTLEMENT=${ALLOW_DEV_FAKE_SETTLEMENT:-true}
       - STRICT_SETTLEMENT=${STRICT_SETTLEMENT:-false}
       - OM_DATA_DIR=/data
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - USDC_TOKEN_ID=${USDC_TOKEN_ID:-}
       - NEXT_PUBLIC_USDC_TOKEN_ID=${NEXT_PUBLIC_USDC_TOKEN_ID:-${USDC_TOKEN_ID:-}}
       - USDC_DECIMALS=${USDC_DECIMALS:-6}
@@ -33,6 +34,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -40,6 +43,21 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     logging:
       driver: json-file
       options:

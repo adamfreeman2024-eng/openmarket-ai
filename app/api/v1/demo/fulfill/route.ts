@@ -5,7 +5,7 @@
  */
 import { NextRequest } from "next/server";
 import { json, options, readJsonBody, rateLimitResponse } from "@/lib/http";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`demo-fulfill:${clientKey(req)}`, 120, 60_000);
+  const rl = await redisRateLimit(`demo-fulfill:${clientKey(req)}`, 120, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const bodyRes = await readJsonBody(req);

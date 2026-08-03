@@ -13,7 +13,7 @@ import {
   fulfillOffer,
   createEscrowForOrder,
 } from "@/lib/settlement";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,7 +38,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> }
 ) {
   ensureSeedCatalog();
-  const rl = rateLimit(`pay:${clientKey(req)}`, 60, 60_000);
+  const rl = await redisRateLimit(`pay:${clientKey(req)}`, 60, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
   const { id } = await ctx.params;
   const order = db.getOrder(id);

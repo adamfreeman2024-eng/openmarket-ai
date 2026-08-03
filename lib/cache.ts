@@ -101,6 +101,41 @@ export const cache = {
     }
   },
 
+  /**
+   * Atomic increment with TTL (Redis INCR + EXPIRE) — used for rate limiting.
+   * Falls back to in-memory counter on memory cache when Redis is down.
+   * Returns the new counter value.
+   */
+  async incr(key: string, ttlSeconds = 60): Promise<number> {
+    try {
+      if (connected && redis) {
+        const val = await redis.incr(key);
+        if (val === 1) await redis.expire(key, ttlSeconds);
+        return val;
+      }
+      // Memory fallback
+      const mem = memCache.get(key);
+      if (!mem || mem.expiry <= Date.now()) {
+        const entry = { value: "1", expiry: Date.now() + ttlSeconds * 1000 };
+        memCache.set(key, entry);
+        return 1;
+      }
+      const next = (JSON.parse(mem.value) as number) + 1;
+      mem.value = String(next);
+      return next;
+    } catch {
+      // If Redis just died, approximate with memory
+      const mem = memCache.get(key);
+      if (!mem || mem.expiry <= Date.now()) {
+        memCache.set(key, { value: "1", expiry: Date.now() + ttlSeconds * 1000 });
+        return 1;
+      }
+      const next = (JSON.parse(mem.value) as number) + 1;
+      mem.value = String(next);
+      return next;
+    }
+  },
+
   async delPattern(pattern: string): Promise<void> {
     try {
       if (connected && redis) {

@@ -12,7 +12,7 @@ import { PLATFORM_FEE_BPS, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
 import { notify } from "@/lib/notifications";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ const Body = z.object({
  * quote → order → pay → fulfill (or escrow lock)
  */
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`buy:${clientKey(req)}`, 120, 60_000);
+  const rl = await redisRateLimit(`buy:${clientKey(req)}`, 120, 60_000);
   if (!rl.ok) return json({ ok: false, error: "Rate limit" }, 429);
 
   ensureSeedCatalog();

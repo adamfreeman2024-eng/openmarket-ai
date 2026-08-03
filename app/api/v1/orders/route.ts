@@ -3,7 +3,7 @@ import { OrderCreateSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, getApiKey, readJsonBody, rateLimitResponse } from "@/lib/http";
 import { SITE_URL } from "@/lib/config";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 /** POST /api/v1/orders — create order → 402 Payment Required */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const rl = rateLimit(`order:${clientKey(req)}`, 120, 60_000);
+  const rl = await redisRateLimit(`order:${clientKey(req)}`, 120, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
   const bodyRes = await readJsonBody(req);
   if (!bodyRes.ok) return bodyRes.response;

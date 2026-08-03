@@ -57,18 +57,14 @@ export async function redisRateLimit(
 
   try {
     const redisKey = `ratelimit:${key}`;
-    const redis = (cache as unknown as { _redis?: { incr: (k: string) => Promise<number>; expire: (k: string, s: number) => Promise<void> } })._redis;
-    
-    // If we can't access Redis directly, fall back to cache-based approach
-    const current = (await cache.get<number>(redisKey)) ?? 0;
-    
-    if (current >= limit) {
+    const current = await cache.incr(redisKey, Math.ceil(windowMs / 1000));
+
+    if (current > limit) {
       log.debug({ key, current, limit }, "Rate limit exceeded");
       return { ok: false, remaining: 0 };
     }
-    
-    await cache.set(redisKey, current + 1, Math.ceil(windowMs / 1000));
-    return { ok: true, remaining: limit - current - 1 };
+
+    return { ok: true, remaining: Math.max(0, limit - current) };
   } catch (e) {
     log.warn({ err: e instanceof Error ? e.message : String(e) }, "Redis rate limit failed, using memory");
     return rateLimit(key, limit, windowMs);

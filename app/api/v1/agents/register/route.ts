@@ -4,7 +4,7 @@ import { db, newId, utcDay, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
 import { nanoid } from "nanoid";
 import { parsePublicHttpUrl } from "@/lib/ssrf";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export function OPTIONS() {
 
 /** POST /api/v1/agents/register — agent-native signup (1 call) */
 export async function POST(req: NextRequest) {
-  const rl = rateLimit(`reg:${clientKey(req)}`, 20, 60_000);
+  const rl = await redisRateLimit(`reg:${clientKey(req)}`, 20, 60_000);
   if (!rl.ok) return json({ ok: false, error: "Rate limit" }, 429);
 
   ensureSeedCatalog();

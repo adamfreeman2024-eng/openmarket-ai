@@ -5,7 +5,7 @@ import { json, options, getApiKey, readJsonBody, rateLimitResponse } from "@/lib
 import { PLATFORM_FEE_BPS, SITE_URL, USDC_TOKEN_ID } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { assertAssetLive } from "@/lib/assets";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ function operatorPayTo() {
 /** POST /api/v1/quotes — lock price + fee for x402 */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const rl = rateLimit(`quote:${clientKey(req)}`, 120, 60_000);
+  const rl = await redisRateLimit(`quote:${clientKey(req)}`, 120, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
   const bodyRes = await readJsonBody(req);
   if (!bodyRes.ok) return bodyRes.response;
