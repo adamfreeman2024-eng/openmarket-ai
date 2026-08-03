@@ -8,7 +8,7 @@ import { computeReputation } from "./reputation";
 export function rankOffer(
   offer: OfferRecord,
   seller: AgentRecord | undefined,
-  opts?: { maxPrice?: number; capability?: string; escrows?: EscrowRecord[]; orderCount?: number }
+  opts?: { maxPrice?: number; capability?: string; escrows?: EscrowRecord[]; orderCount?: number; text?: string }
 ): number {
   const sales = seller?.stats.sales ?? 0;
   const success = seller?.stats.success ?? 0;
@@ -28,6 +28,17 @@ export function rankOffer(
   if (opts?.capability && offer.capability === opts.capability) score += 0.2;
   if (opts?.maxPrice != null && offer.priceAmount > opts.maxPrice) score -= 1;
   if (!offer.active) score -= 10;
+
+  // Text relevance boost: title match > tag match > description match.
+  if (opts?.text) {
+    const t = opts.text.toLowerCase();
+    const title = (offer.title || "").toLowerCase();
+    const desc = (offer.description || "").toLowerCase();
+    const cap = (offer.capability || "").toLowerCase();
+    if (title.includes(t)) score += 0.35;
+    else if (offer.tags.some((tag) => tag.toLowerCase().includes(t))) score += 0.25;
+    else if (desc.includes(t) || cap.includes(t)) score += 0.15;
+  }
 
   // Reputation boost: add badge boost as percentage of base score
   if (seller && opts?.escrows) {
@@ -90,6 +101,17 @@ export function searchOffers(
       (o) => o.capability.startsWith(q.category!) || o.tags.includes(q.category!)
     );
   }
+  // Min rating filter — success rate threshold (0..1), e.g. 0.9 = 90% success
+  if (q.minRating != null && q.minRating > 0) {
+    list = list.filter((o) => {
+      const seller = agents.get(o.agentId);
+      const success = seller?.stats.success ?? 0;
+      const fail = seller?.stats.fail ?? 0;
+      const total = success + fail;
+      if (total === 0) return true; // unknown sellers pass (mild prior)
+      return success / total >= q.minRating!;
+    });
+  }
 
   const scored = list
     .map((o) => {
@@ -102,6 +124,7 @@ export function searchOffers(
           capability: q.capability,
           escrows: q.escrows,
           orderCount,
+          text: text || undefined,
         }),
         seller,
       };
