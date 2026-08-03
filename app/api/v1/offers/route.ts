@@ -12,7 +12,7 @@ import {
 import { assertAssetLive } from "@/lib/assets";
 import { publicOffer } from "@/lib/public-dto";
 import { parsePublicHttpUrl } from "@/lib/ssrf";
-import { rateLimit, clientKey } from "@/lib/rate-limit";
+import { redisRateLimit, clientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export async function GET() {
 /** POST /api/v1/offers — seller creates listing (auth) */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
-  const rl = rateLimit(`offer:${clientKey(req)}`, 60, 60_000);
+  const rl = await redisRateLimit(`offer:${clientKey(req)}`, 60, 60_000);
   if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const agent = requireAgent(req);
