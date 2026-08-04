@@ -188,6 +188,12 @@ curl -s -X POST ${SITE_URL}/api/v1/agents/register \\
           <code>npx -y agentbazaar-mcp-server</code> · Python:{" "}
           <code>pip install openmarket-py</code>
         </p>
+        <p className="muted" style={{ marginTop: "0.5rem" }}>
+          🎯 <a href="https://github.com/adamfreeman2024-eng/openmarket-ai/blob/main/docs/HACKATHON-KIT.md">Hackathon Kit</a>
+          {" · "}✨{" "}
+          <a href="https://github.com/adamfreeman2024-eng/openmarket-ai/blob/main/docs/AWESOME-AGENTBAZAAR.md">Awesome AgentBazaar</a>
+          {" · "}📚 <a href="/docs">Developer Portal</a>
+        </p>
       </div>
     </main>
   );
