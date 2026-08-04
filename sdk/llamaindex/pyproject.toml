@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openmarket-llamaindex"
+version = "0.1.0"
+description = "AgentBazaar FunctionTools for LlamaIndex — agent-to-agent commerce on Hedera"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = ["httpx"]
+
+[project.optional-dependencies]
+llamaindex = ["llama-index-core"]
+
+[tool.setuptools]
+py-modules = ["openmarket_llamaindex"]

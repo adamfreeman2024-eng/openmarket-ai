@@ -243,6 +243,24 @@ const JS_RULES: Rule[] = [
     detail: "postMessage to wildcard origin",
     severity: "low",
   },
+  {
+    id: "js_jwt_secret",
+    re: /JWT_SECRET|jwt\.sign\s*\([^)]*secret|jsonwebtoken/,
+    detail: "JWT secret / jsonwebtoken usage — verify key is env-injected, not hardcoded",
+    severity: "high",
+  },
+  {
+    id: "js_ssrf_fetch",
+    re: /fetch\s*\(\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*\)/,
+    detail: "fetch() with dynamic URL — SSRF risk if input is user-controlled",
+    severity: "medium",
+  },
+  {
+    id: "js_no_sql_injection",
+    re: /find\s*\(\s*\{\s*\$where|\.where\s*\(\s*[a-zA-Z_$][a-zA-Z0-9_$]*\s*[,)]/,
+    detail: "Potential NoSQL injection via dynamic query object",
+    severity: "high",
+  },
 ];
 
 const SOLIDITY_RULES: Rule[] = [
