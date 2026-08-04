@@ -7,6 +7,9 @@ export type LlmChatMessage = {
   content: string;
 };
 
+/** 60s in-memory cache for deterministic mirror-query results (hedera.mirror_query) */
+const MIRROR_CACHE = new Map<string, { ts: number; data: unknown }>();
+
 export function llmConfigured(): boolean {
   return Boolean(
     process.env.TOKENROUTER_API_KEY ||
@@ -401,63 +404,113 @@ export async function llmFulfill(
 
   if (capability === "hedera.mirror_query") {
     // Real on-chain data queries — deterministic, no LLM needed.
-    // Mirrors public mirror node REST API for account/transaction/contract info.
+    // Mirrors public mirror node REST API for account/transaction/contract/topic/token info.
     const network = process.env.HEDERA_NETWORK === "mainnet" ? "mainnet" : "testnet";
     const mirror = `https://${network}.mirrornode.hedera.com/api/v1`;
     const accountId = String(input?.accountId || input?.account || "");
     const txId = String(input?.transactionId || input?.txId || "");
     const contractId = String(input?.contractId || "");
+    const topicId = String(input?.topicId || input?.topic || "");
+    const tokenId = String(input?.tokenId || input?.token || "");
     const type = String(input?.type || "account");
+
+    // 60s in-memory cache — repeated queries (e.g. dashboard polling) hit cache.
+    const cacheKey = `mirror:${network}:${type}:${accountId || txId || contractId || topicId || tokenId}`;
+    const now = Date.now();
+    const cached = MIRROR_CACHE.get(cacheKey);
+    if (cached && now - cached.ts < 60_000) {
+      return { ok: true, result: { ...(cached.data as object), cached: true } };
+    }
+
+    const setCache = (data: unknown) => {
+      MIRROR_CACHE.set(cacheKey, { ts: now, data });
+      if (MIRROR_CACHE.size > 500) {
+        const oldest = MIRROR_CACHE.keys().next().value;
+        if (oldest) MIRROR_CACHE.delete(oldest);
+      }
+    };
 
     try {
       if (type === "account" && accountId) {
         const r = await fetch(`${mirror}/accounts/${encodeURIComponent(accountId)}`, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
         const a = await r.json();
-        return {
-          ok: true,
-          result: {
-            accountId: a.account,
-            balance: a.balance ? Number(a.balance.balance) / 1e8 : null,
-            hbar: a.balance ? (Number(a.balance.balance) / 1e8).toFixed(6) : null,
-            tokens: (a.balance?.tokens || []).map((t: any) => ({ tokenId: t.token_id, balance: t.balance })),
-            memo: a.memo || null,
-            created: a.created_timestamp || null,
-            mode: "hedera.mirror_query",
-          },
+        const data = {
+          accountId: a.account,
+          hbar: a.balance ? (Number(a.balance.balance) / 1e8).toFixed(6) : null,
+          tokens: (a.balance?.tokens || []).map((t: any) => ({ tokenId: t.token_id, balance: t.balance })),
+          memo: a.memo || null,
+          created: a.created_timestamp || null,
+          mode: "hedera.mirror_query",
         };
+        setCache(data);
+        return { ok: true, result: data };
       }
       if (type === "transaction" && txId) {
         const r = await fetch(`${mirror}/transactions/${encodeURIComponent(txId)}`, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
         const t = await r.json();
         const tx = t.transactions?.[0];
-        return {
-          ok: true,
-          result: {
-            transactionId: tx?.transaction_id,
-            status: tx?.result,
-            validStart: tx?.valid_start_timestamp,
-            chargedFees: tx?.charged_tx_fee,
-            transfers: (tx?.transfers || []).slice(0, 10).map((x: any) => ({ account: x.account, amount: Number(x.amount) / 1e8 })),
-            mode: "hedera.mirror_query",
-          },
+        const data = {
+          transactionId: tx?.transaction_id,
+          status: tx?.result,
+          validStart: tx?.valid_start_timestamp,
+          chargedFees: tx?.charged_tx_fee,
+          transfers: (tx?.transfers || []).slice(0, 10).map((x: any) => ({ account: x.account, amount: Number(x.amount) / 1e8 })),
+          mode: "hedera.mirror_query",
         };
+        setCache(data);
+        return { ok: true, result: data };
       }
       if (type === "contract" && contractId) {
         const r = await fetch(`${mirror}/contracts/${encodeURIComponent(contractId)}`, { signal: AbortSignal.timeout(15000) });
         if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
         const c = await r.json();
-        return {
-          ok: true,
-          result: {
-            contractId: c.contract_id,
-            evmAddress: c.evm_address,
-            balance: c.balance ? Number(c.balance) / 1e8 : null,
-            created: c.created_timestamp,
-            mode: "hedera.mirror_query",
-          },
+        const data = {
+          contractId: c.contract_id,
+          evmAddress: c.evm_address,
+          balance: c.balance ? Number(c.balance) / 1e8 : null,
+          created: c.created_timestamp,
+          mode: "hedera.mirror_query",
         };
+        setCache(data);
+        return { ok: true, result: data };
+      }
+      if (type === "topic" && topicId) {
+        // HCS topic messages (latest 10) — consensus service data
+        const r = await fetch(`${mirror}/topics/${encodeURIComponent(topicId)}/messages?limit=10&order=desc`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const t = await r.json();
+        const data = {
+          topicId,
+          messageCount: t.messages?.length ?? 0,
+          latestMessages: (t.messages || []).map((m: any) => ({
+            sequenceNumber: m.sequence_number,
+            consensusTimestamp: m.consensus_timestamp,
+            message: (m.message || "").toString().slice(0, 500),
+          })),
+          mode: "hedera.mirror_query",
+        };
+        setCache(data);
+        return { ok: true, result: data };
+      }
+      if (type === "token" && tokenId) {
+        // Token info (HTS) — supply, decimals, symbol
+        const r = await fetch(`${mirror}/tokens/${encodeURIComponent(tokenId)}`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const tk = await r.json();
+        const data = {
+          tokenId: tk.token_id,
+          symbol: tk.symbol,
+          name: tk.name,
+          decimals: tk.decimals,
+          totalSupply: tk.total_supply,
+          treasury: tk.treasury_account_id,
+          type: tk.type,
+          mode: "hedera.mirror_query",
+        };
+        setCache(data);
+        return { ok: true, result: data };
       }
       return { ok: false, error: "MISSING_INPUT" };
     } catch (e) {
