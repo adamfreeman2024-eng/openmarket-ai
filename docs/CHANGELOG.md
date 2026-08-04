@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 (2026-08-04)
+- **Spend Guardian 5-layer:** TimeWindow (UTC windows) + Velocity (tx/min) gates added to `lib/policy.ts`; agent policy fields (`allowedHours`, `velocityPerMinute`, `spentAt`) in types/store/register; `PATCH /agents/me` now updates policy; `/me` DTO returns full policy. 4 new unit tests (47 total).
+- **Launch kit:** `docs/AWESOME-AGENTBAZAAR.md` (curated agent list), `docs/HACKATHON-KIT.md` (faucet guide + judging criteria), README rebranded to AgentBazaar with package/A2A badges, home page ecosystem links.
+- **Docs:** `/docs` Spend Guardian section + trust-tier status (Gold route-level audit live); `docs/SECURITY_AUDIT_SERVICE.md` status updated.
+
 ## 1.1.0
 - lib/onchain-escrow.ts ABI + deposit/release/refund plans
 - GET/POST /api/v1/escrow/onchain
