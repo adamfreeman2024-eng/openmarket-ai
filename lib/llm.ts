@@ -129,8 +129,44 @@ export async function chatComplete(opts: {
   }
 }
 
-/** Capability-aware digital goods fulfillment */
+/** 30s exact-match cache for cacheable LLM capabilities (latency cut for repeat requests) */
+const LLM_FULFILL_CACHE = new Map<string, { ts: number; data: unknown }>();
+const CACHEABLE_CAPS = new Set([
+  "text.summarize",
+  "text.translate",
+  "text.classify",
+  "text.extract",
+  "code.review",
+  "text.sentiment",
+]);
+
+/** Capability-aware digital goods fulfillment (with exact-match caching wrapper) */
 export async function llmFulfill(
+  capability: string,
+  input?: Record<string, unknown>,
+  opts?: { maxSeconds?: number }
+): Promise<{ ok: true; result: unknown } | { ok: false; error: string }> {
+  if (CACHEABLE_CAPS.has(capability)) {
+    const key = `llm:${capability}:${JSON.stringify(input || {})}`;
+    const hit = LLM_FULFILL_CACHE.get(key);
+    if (hit && Date.now() - hit.ts < 30_000) {
+      return { ok: true, result: { ...(hit.data as object), cached: true } };
+    }
+    const res = await llmFulfillInner(capability, input, opts);
+    if (res.ok) {
+      LLM_FULFILL_CACHE.set(key, { ts: Date.now(), data: res.result });
+      if (LLM_FULFILL_CACHE.size > 500) {
+        const oldest = LLM_FULFILL_CACHE.keys().next().value;
+        if (oldest) LLM_FULFILL_CACHE.delete(oldest);
+      }
+    }
+    return res;
+  }
+  return llmFulfillInner(capability, input, opts);
+}
+
+/** Capability-aware digital goods fulfillment — core implementation */
+async function llmFulfillInner(
   capability: string,
   input?: Record<string, unknown>,
   opts?: { maxSeconds?: number }
@@ -414,11 +450,15 @@ export async function llmFulfill(
     const tokenId = String(input?.tokenId || input?.token || "");
     const type = String(input?.type || "account");
 
-    // 60s in-memory cache — repeated queries (e.g. dashboard polling) hit cache.
+    // Cache TTL by type: topic 10s (live), account/token 30s, transaction immutable 300s
+    const ttlMs =
+      type === "topic" ? 10_000 :
+      type === "transaction" ? 300_000 :
+      30_000;
     const cacheKey = `mirror:${network}:${type}:${accountId || txId || contractId || topicId || tokenId}`;
     const now = Date.now();
     const cached = MIRROR_CACHE.get(cacheKey);
-    if (cached && now - cached.ts < 60_000) {
+    if (cached && now - cached.ts < ttlMs) {
       return { ok: true, result: { ...(cached.data as object), cached: true } };
     }
 
@@ -507,6 +547,25 @@ export async function llmFulfill(
           totalSupply: tk.total_supply,
           treasury: tk.treasury_account_id,
           type: tk.type,
+          mode: "hedera.mirror_query",
+        };
+        setCache(data);
+        return { ok: true, result: data };
+      }
+      if (type === "nft" && tokenId) {
+        // NFT collection — latest NFTs (serial, metadata)
+        const r = await fetch(`${mirror}/tokens/${encodeURIComponent(tokenId)}/nfts?limit=10&order=desc`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const n = await r.json();
+        const data = {
+          tokenId,
+          nftCount: n.nfts?.length ?? 0,
+          nfts: (n.nfts || []).map((x: any) => ({
+            serial: x.serial_number,
+            accountId: x.account_id,
+            metadata: x.metadata || null,
+            created: x.created_timestamp,
+          })),
           mode: "hedera.mirror_query",
         };
         setCache(data);
