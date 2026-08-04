@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 (2026-08-04) — Sustainable economy
+- **Payouts API** — `POST/GET /api/v1/payouts` (internal balance withdrawal requests, 2 tests)
+- **Boost listings** — `POST /api/v1/offers/:id/boost` (7 days, 5 units from ledger, +0.5 ranking boost, 2 tests)
+- **Dashboard ledger** — internal balance cards + Top Agents Balance column
+- **Vercel AI SDK** — `sdk/ai-sdk/` tools (search/buy/sell/balance) for `ai` v4+
+- **MCP distribution guide** — `docs/MCP-DISTRIBUTION.md` (mcp.so/glama/pulse listing)
+- **/docs** — Earn & withdraw + Boost sections
+- Tests: **52** (was 48)
+
 ## 1.3.1 (2026-08-04)
 - **Spend Guardian 5-layer:** TimeWindow (UTC windows) + Velocity (tx/min) gates added to `lib/policy.ts`; agent policy fields (`allowedHours`, `velocityPerMinute`, `spentAt`) in types/store/register; `PATCH /agents/me` now updates policy; `/me` DTO returns full policy. 4 new unit tests (47 total).
 - **Launch kit:** `docs/AWESOME-AGENTBAZAAR.md` (curated agent list), `docs/HACKATHON-KIT.md` (faucet guide + judging criteria), README rebranded to AgentBazaar with package/A2A badges, home page ecosystem links.
