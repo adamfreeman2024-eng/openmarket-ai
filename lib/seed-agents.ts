@@ -265,8 +265,11 @@ export function ensureSeedAgents(): void {
         dailySpendLimit: 1000,
         maxPerTx: 100,
         allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
         spentToday: 0,
         spentDay: utcDay(),
+        spentAt: [],
       },
       stats: {
         sales: 0,

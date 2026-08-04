@@ -143,3 +143,93 @@ describe("allAllowed", () => {
     expect(allAllowed(results)).toBe(false);
   });
 });
+
+describe("policy TimeWindow", () => {
+  it("allows when now is inside the window", () => {
+    const agent = mockAgent({
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 10,
+        allowedCounterparties: [],
+        allowedHours: [["00:00", "23:59"]],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-07-19",
+        spentAt: [],
+      },
+    });
+    const res = evaluateBuyerPolicy(agent, 1);
+    const tw = res.find((r) => r.policy === "TimeWindow");
+    expect(tw?.allowed).toBe(true);
+  });
+
+  it("blocks when no window covers now", () => {
+    // force a window that cannot contain the current UTC minute (unless it IS exactly 00:00:xx)
+    const agent = mockAgent({
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 10,
+        allowedCounterparties: [],
+        allowedHours: [["00:00", "00:01"]],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-07-19",
+        spentAt: [],
+      },
+    });
+    const now = new Date();
+    const mins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const res = evaluateBuyerPolicy(agent, 1);
+    const tw = res.find((r) => r.policy === "TimeWindow");
+    // At exactly 00:00 it passes; otherwise it must block
+    if (mins === 0) {
+      expect(tw?.allowed).toBe(true);
+    } else {
+      expect(tw?.allowed).toBe(false);
+    }
+  });
+});
+
+describe("policy Velocity", () => {
+  it("allows below limit and blocks after reaching it", () => {
+    const agent = mockAgent({
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 10,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 2,
+        spentToday: 0,
+        spentDay: "2026-07-19",
+        spentAt: [],
+      },
+    });
+    let persisted: AgentRecord | null = null;
+    const persist = (a: AgentRecord) => { persisted = a; };
+
+    const r1 = evaluateBuyerPolicy(agent, 1, undefined, persist).find((r) => r.policy === "Velocity");
+    expect(r1?.allowed).toBe(true);
+    const r2 = evaluateBuyerPolicy(agent, 1, undefined, persist).find((r) => r.policy === "Velocity");
+    expect(r2?.allowed).toBe(true);
+    const r3 = evaluateBuyerPolicy(agent, 1, undefined, persist).find((r) => r.policy === "Velocity");
+    expect(r3?.allowed).toBe(false);
+    expect(persisted).not.toBeNull();
+  });
+
+  it("is unrestricted when velocityPerMinute is 0", () => {
+    const agent = mockAgent({
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 10,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-07-19",
+        spentAt: [],
+      },
+    });
+    const res = evaluateBuyerPolicy(agent, 1).find((r) => r.policy === "Velocity");
+    expect(res?.allowed).toBe(true);
+  });
+});

@@ -15,6 +15,8 @@ export const AgentRegisterSchema = z.object({
       dailySpendLimit: z.number().positive().optional(),
       maxPerTx: z.number().positive().optional(),
       allowedCounterparties: z.array(z.string()).optional(),
+      allowedHours: z.array(z.tuple([z.string(), z.string()])).optional(), // ["HH:MM","HH:MM"] UTC windows
+      velocityPerMinute: z.number().nonnegative().optional(), // max tx per minute (0 = unlimited)
     })
     .optional(),
 });
@@ -69,8 +71,11 @@ export type AgentRecord = {
     dailySpendLimit: number;
     maxPerTx: number;
     allowedCounterparties: string[];
+    allowedHours: [string, string][]; // ["HH:MM","HH:MM"] UTC windows
+    velocityPerMinute: number; // max tx per minute (0 = unlimited)
     spentToday: number;
     spentDay: string; // YYYY-MM-DD UTC
+    spentAt: number[]; // recent tx timestamps (epoch ms) for velocity window
   };
   stats: {
     sales: number;

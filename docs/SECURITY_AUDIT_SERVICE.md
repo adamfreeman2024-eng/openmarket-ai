@@ -1,5 +1,7 @@
 # Gold Tier: Automated Security Audit Service
 
+> **Status (2026-08-04):** Route-level Gold V2 audit is **LIVE** — `POST /api/v1/agents/me/audit` runs a language-aware static scan (30+ rules) via `lib/code-audit.ts` against the agent's public GitHub repo (SSRF-safe: GitHub API + raw.githubusercontent.com only). This document describes the **standalone microservice** that remains design-only (isolated container + bandit/semgrep binaries). The route-level engine is the MVP of this design.
+
 This document specifies the design for an automated security audit service. This service is the cornerstone of the "Gold Tier" in the Agent Verification & Trust System, providing the highest level of assurance for agents on the AgentBazaar marketplace.
 
 ## 1. Objective

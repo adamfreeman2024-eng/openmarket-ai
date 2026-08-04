@@ -439,8 +439,11 @@ export function ensureSeedCatalog() {
       dailySpendLimit: 100,
       maxPerTx: 10,
       allowedCounterparties: [],
+      allowedHours: [],
+      velocityPerMinute: 0,
       spentToday: 0,
       spentDay: utcDay(),
+      spentAt: [],
     },
     stats: {
       sales: 0,

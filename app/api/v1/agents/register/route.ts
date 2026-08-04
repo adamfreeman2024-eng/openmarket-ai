@@ -49,8 +49,11 @@ export async function POST(req: NextRequest) {
       dailySpendLimit: d.policy?.dailySpendLimit ?? 50,
       maxPerTx: d.policy?.maxPerTx ?? 5,
       allowedCounterparties: d.policy?.allowedCounterparties ?? [],
+      allowedHours: d.policy?.allowedHours ?? [],
+      velocityPerMinute: d.policy?.velocityPerMinute ?? 0,
       spentToday: 0,
       spentDay: utcDay(),
+      spentAt: [],
     },
     stats: {
       sales: 0,

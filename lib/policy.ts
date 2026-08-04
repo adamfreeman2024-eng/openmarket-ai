@@ -73,6 +73,51 @@ export function evaluateBuyerPolicy(
     results.push({ allowed: true, policy: "Allowlist" });
   }
 
+  // ── TimeWindow (Spend Guardian layer 4) ──
+  const windows = agent.policy.allowedHours || [];
+  if (windows.length > 0) {
+    const now = new Date();
+    const mins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const inWindow = windows.some(([start, end]) => {
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const s = (sh || 0) * 60 + (sm || 0);
+      const e = (eh || 0) * 60 + (em || 0);
+      // support overnight windows (end < start)
+      return e >= s ? mins >= s && mins < e : mins >= s || mins < e;
+    });
+    results.push({
+      allowed: inWindow,
+      policy: "TimeWindow",
+      reason: inWindow ? undefined : `Outside allowed trading hours (${windows.map((w) => w.join("-")).join(", ")} UTC)`,
+    });
+  } else {
+    results.push({ allowed: true, policy: "TimeWindow" });
+  }
+
+  // ── Velocity (Spend Guardian layer 5) — max tx per rolling minute ──
+  const velocity = agent.policy.velocityPerMinute || 0;
+  const nowMs = Date.now();
+  const spentAt = Array.isArray(agent.policy.spentAt) ? agent.policy.spentAt : [];
+  // prune timestamps older than 60s
+  const recent = spentAt.filter((t) => nowMs - t < 60_000);
+  agent.policy.spentAt = recent;
+  if (velocity > 0) {
+    const allowed = recent.length < velocity;
+    results.push({
+      allowed,
+      policy: "Velocity",
+      reason: allowed ? undefined : `Exceeds ${velocity} tx/min velocity limit`,
+    });
+    if (allowed && persistFn) {
+      // record this tx attempt so the velocity window is enforced on the NEXT buy
+      agent.policy.spentAt = [...recent, nowMs];
+      persistFn(agent);
+    }
+  } else {
+    results.push({ allowed: true, policy: "Velocity" });
+  }
+
   return results;
 }
 

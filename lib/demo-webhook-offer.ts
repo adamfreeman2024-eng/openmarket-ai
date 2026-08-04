@@ -35,8 +35,11 @@ export function ensureDemoWebhookOffer() {
         dailySpendLimit: 1000,
         maxPerTx: 100,
         allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
         spentToday: 0,
         spentDay: new Date().toISOString().slice(0, 10),
+        spentAt: [],
       },
       stats: {
         sales: 0,
@@ -49,6 +52,7 @@ export function ensureDemoWebhookOffer() {
     };
     db.putAgent(agent);
   }
+  if (!agent) return null;
 
   const offer = {
     id: newId("off"),
