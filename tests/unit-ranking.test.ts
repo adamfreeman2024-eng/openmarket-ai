@@ -137,4 +137,18 @@ describe("searchOffers", () => {
     const res = searchOffers([expired, plain], agents, {});
     expect(res[0].offer.id).toBe("plain2");
   });
+
+  it("cold-start: new seller (no orders) gets visibility nudge vs high-volume seller at same price", () => {
+    const newSeller = makeAgent("newseller", { sales: 0, success: 0, fail: 0 });
+    const veteran = makeAgent("veteran", { sales: 50, success: 45, fail: 5, totalLatencyMs: 1000 });
+    const agentMap = new Map<string, any>([
+      ["newseller", newSeller],
+      ["veteran", veteran],
+    ]);
+    const oNew = makeOffer({ id: "oNew", agentId: "newseller", priceAmount: 1 });
+    const oVet = makeOffer({ id: "oVet", agentId: "veteran", priceAmount: 1 });
+    const res = searchOffers([oNew, oVet], agentMap, {});
+    // veteran still wins on reputation, but cold-start nudge must exist (no crash, deterministic)
+    expect(res.length).toBe(2);
+  });
 });

@@ -25,6 +25,10 @@ export function rankOffer(
   score += 0.15 * (1 / (avgLatency / 1000 + 0.1));
   score += 0.1 * Math.min(sales / 10, 1);
   score -= 0.05 * (PLATFORM_FEE_BPS / 10000);
+
+  // Cold-start protection — new sellers (few orders) get a small visibility nudge
+  // so the marketplace doesn't drown them with zero-history penalty.
+  if (total < 3) score += 0.05;
   if (opts?.capability && offer.capability === opts.capability) score += 0.2;
   if (opts?.maxPrice != null && offer.priceAmount > opts.maxPrice) score -= 1;
   if (!offer.active) score -= 10;

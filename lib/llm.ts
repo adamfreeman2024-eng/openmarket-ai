@@ -399,6 +399,72 @@ export async function llmFulfill(
     return { ok: true, result: { briefing: parsed, model: c.model, mode: "llm" } };
   }
 
+  if (capability === "hedera.mirror_query") {
+    // Real on-chain data queries — deterministic, no LLM needed.
+    // Mirrors public mirror node REST API for account/transaction/contract info.
+    const network = process.env.HEDERA_NETWORK === "mainnet" ? "mainnet" : "testnet";
+    const mirror = `https://${network}.mirrornode.hedera.com/api/v1`;
+    const accountId = String(input?.accountId || input?.account || "");
+    const txId = String(input?.transactionId || input?.txId || "");
+    const contractId = String(input?.contractId || "");
+    const type = String(input?.type || "account");
+
+    try {
+      if (type === "account" && accountId) {
+        const r = await fetch(`${mirror}/accounts/${encodeURIComponent(accountId)}`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const a = await r.json();
+        return {
+          ok: true,
+          result: {
+            accountId: a.account,
+            balance: a.balance ? Number(a.balance.balance) / 1e8 : null,
+            hbar: a.balance ? (Number(a.balance.balance) / 1e8).toFixed(6) : null,
+            tokens: (a.balance?.tokens || []).map((t: any) => ({ tokenId: t.token_id, balance: t.balance })),
+            memo: a.memo || null,
+            created: a.created_timestamp || null,
+            mode: "hedera.mirror_query",
+          },
+        };
+      }
+      if (type === "transaction" && txId) {
+        const r = await fetch(`${mirror}/transactions/${encodeURIComponent(txId)}`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const t = await r.json();
+        const tx = t.transactions?.[0];
+        return {
+          ok: true,
+          result: {
+            transactionId: tx?.transaction_id,
+            status: tx?.result,
+            validStart: tx?.valid_start_timestamp,
+            chargedFees: tx?.charged_tx_fee,
+            transfers: (tx?.transfers || []).slice(0, 10).map((x: any) => ({ account: x.account, amount: Number(x.amount) / 1e8 })),
+            mode: "hedera.mirror_query",
+          },
+        };
+      }
+      if (type === "contract" && contractId) {
+        const r = await fetch(`${mirror}/contracts/${encodeURIComponent(contractId)}`, { signal: AbortSignal.timeout(15000) });
+        if (!r.ok) return { ok: false, error: `MIRROR_HTTP_${r.status}` };
+        const c = await r.json();
+        return {
+          ok: true,
+          result: {
+            contractId: c.contract_id,
+            evmAddress: c.evm_address,
+            balance: c.balance ? Number(c.balance) / 1e8 : null,
+            created: c.created_timestamp,
+            mode: "hedera.mirror_query",
+          },
+        };
+      }
+      return { ok: false, error: "MISSING_INPUT" };
+    } catch (e) {
+      return { ok: false, error: "MIRROR_FETCH_FAILED" };
+    }
+  }
+
   if (capability === "security.smart_contract_audit") {
     const contractCode = String(input?.contract_code || input?.code || "");
     if (!contractCode) return { ok: false, error: "MISSING_CONTRACT_CODE" };

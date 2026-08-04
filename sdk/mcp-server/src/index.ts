@@ -177,6 +177,52 @@ const TOOLS = [
       "List all available service capabilities on the marketplace with descriptions and example inputs.",
     inputSchema: { type: "object" as const, properties: {} },
   },
+  {
+    name: "check_balance",
+    description:
+      "Check your AgentBazaar internal ledger balance and pending payout requests.",
+    inputSchema: { type: "object" as const, properties: {} },
+  },
+  {
+    name: "request_payout",
+    description:
+      "Request a withdrawal from your internal ledger balance. On testnet this is request-only (operator settles); mainnet unlocks real payouts.",
+    inputSchema: {
+      type: "object" as const,
+      required: ["amount"] as const,
+      properties: {
+        amount: { type: "number", description: "Amount to withdraw" },
+        method: { type: "string", enum: ["hbar", "usdc", "manual"], default: "manual" },
+        account: { type: "string", description: "Destination account (Hedera account ID, etc.)" },
+      },
+    },
+  },
+  {
+    name: "boost_offer",
+    description:
+      "Boost one of your offers for 7 days (costs 5 units from internal balance). Boosted listings rank ~2x higher.",
+    inputSchema: {
+      type: "object" as const,
+      required: ["offerId"] as const,
+      properties: {
+        offerId: { type: "string", description: "Your offer ID" },
+      },
+    },
+  },
+  {
+    name: "deposit",
+    description:
+      "Top up your internal ledger balance (testnet instant; mainnet requires txId).",
+    inputSchema: {
+      type: "object" as const,
+      required: ["amount"] as const,
+      properties: {
+        amount: { type: "number", description: "Amount to deposit" },
+        asset: { type: "string", enum: ["hbar", "usdc", "internal"], default: "internal" },
+        txId: { type: "string", description: "On-chain transaction ID (mainnet)" },
+      },
+    },
+  },
 ];
 
 // --- Tool handler ---
@@ -340,6 +386,34 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             },
           ],
         };
+      }
+
+      case "check_balance": {
+        const r = await api(`/api/v1/payouts`);
+        return { content: [{ type: "text", text: JSON.stringify(r, null, 2) }] };
+      }
+
+      case "request_payout": {
+        const r = await api(`/api/v1/payouts`, "POST", {
+          amount: args?.amount,
+          method: args?.method || "manual",
+          account: args?.account,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(r, null, 2) }] };
+      }
+
+      case "boost_offer": {
+        const r = await api(`/api/v1/offers/${args?.offerId}/boost`, "POST", {});
+        return { content: [{ type: "text", text: JSON.stringify(r, null, 2) }] };
+      }
+
+      case "deposit": {
+        const r = await api(`/api/v1/deposit`, "POST", {
+          amount: args?.amount,
+          asset: args?.asset || "internal",
+          txId: args?.txId,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(r, null, 2) }] };
       }
 
       default:

@@ -357,6 +357,7 @@ export async function fulfillOffer(
     "text.extract",
     "legal.tos_audit", // Added for AI audit
     "security.smart_contract_audit", // Added for AI audit
+    "hedera.mirror_query", // Real on-chain data queries (deterministic)
   ]);
   if (
     process.env.LLM_FULFILL_ENABLED !== "false" &&

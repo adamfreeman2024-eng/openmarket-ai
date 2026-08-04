@@ -211,6 +211,17 @@ export const SEED_AGENTS: SeedAgentDef[] = [
         maxSeconds: 90,
         tags: ["research", "web", "llm", "popular"],
       },
+      {
+        capability: "hedera.mirror_query",
+        title: "Hedera On-Chain Data Query",
+        description:
+          "Query live Hedera network data (testnet/mainnet) via the public Mirror Node API. Input: {type: 'account'|'transaction'|'contract', accountId|transactionId|contractId}. Returns balance, tokens, transaction status, contract info.",
+        priceAmount: 0.02,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 20,
+        tags: ["hedera", "onchain", "mirror", "data", "real"],
+      },
     ],
   },
 ];
