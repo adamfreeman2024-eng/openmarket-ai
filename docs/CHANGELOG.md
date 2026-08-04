@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.2 (2026-08-04)
+- **Rate limiting V2 full coverage** — Redis-backed `redisRateLimit` added to all remaining write endpoints: deposit, payouts, hire, offer boost/delete, workflow create/run, reviews, agents/me PATCH, escrow dispute/refund/release/resolve/expire/onchain-plan, disputes respond/resolve, agent audit, github initiate/verify, settlement check. Limits 10–30/min per client IP with in-memory fallback.
+- **Test** — `tests/unit-ratelimit.test.ts` (6 tests: memory fallback, redis fallback, clientKey parsing). Total: 59 tests.
+
 ## 1.4.1 (2026-08-04)
 - **Deposit API** — `POST/GET /api/v1/deposit` (testnet instant top-up, mainnet requires txId)
 - **Gold SAST +3 rules** — `js_jwt_secret` (high), `js_ssrf_fetch` (medium), `js_no_sql_injection` (high)

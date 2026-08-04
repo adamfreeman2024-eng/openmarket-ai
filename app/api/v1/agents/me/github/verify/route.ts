@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, ensureSeedCatalog, audit } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { findTokenInGithubGists, getVerificationStatus } from "@/lib/verification";
 
 export const runtime = "nodejs";
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   ensureSeedCatalog();
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
+
+  const rl = await redisRateLimit(`github-verify:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   if (getVerificationStatus(agent) === "gold") {
     return json({

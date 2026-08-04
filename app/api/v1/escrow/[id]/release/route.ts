@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { ALLOW_DEV_FAKE_SETTLEMENT, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { onChainRelease, hashScanUrl } from "@/lib/onchain-escrow-live";
@@ -31,6 +32,9 @@ export async function POST(
   const escrow = db.getEscrow(id);
   if (!escrow) return json({ ok: false, error: "Escrow not found" }, 404);
   
+  const rl = await redisRateLimit(`escrow-release:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
+
   // CRITICAL FIX: Prevent replay attacks - only allow release from locked status
   if (escrow.status === "disputed") {
     return json(

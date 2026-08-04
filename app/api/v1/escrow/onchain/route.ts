@@ -1,4 +1,5 @@
 import { json, options } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import {
   escrowContractInfo,
   buildOnChainDepositPlan,
@@ -38,6 +39,8 @@ export async function GET() {
 
 /** POST plan deposit (does not send tx — returns calldata plan) */
 export async function POST(req: Request) {
+  const rl = await redisRateLimit(`escrow-onchain-plan:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   const body = await req.json().catch(() => ({}));
   if (!isEscrowContractLive()) {
     return json({

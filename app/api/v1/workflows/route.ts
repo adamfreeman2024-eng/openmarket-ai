@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import {
   putWorkflow,
   listWorkflows,
@@ -55,6 +56,8 @@ export async function GET(req: NextRequest) {
 /** POST /api/v1/workflows — create a workflow (agent auth or demo) */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
+  const rl = await redisRateLimit(`workflow-create:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   const owner = ownerOf(req);
 
   const body = await req.json().catch(() => null);

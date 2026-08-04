@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { json, options } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import {
   fetchMirrorTransaction,
   normalizeTxId,
@@ -52,6 +53,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const rl = await redisRateLimit(`settlement-check:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   const body = await req.json().catch(() => ({}));
   const transactionId = String(body.transactionId || "");
   const expectedPayTo = String(body.expectedPayTo || "");

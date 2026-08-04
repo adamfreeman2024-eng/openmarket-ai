@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { getBalance, debitAgent, creditAgent } from "@/lib/agent-ledger";
 
 export const runtime = "nodejs";
@@ -31,6 +32,9 @@ export async function POST(req: NextRequest) {
   ensureSeedCatalog();
   const buyer = requireAgent(req);
   if (isResponse(buyer)) return buyer;
+
+  const rl = await redisRateLimit(`hire:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => null);
   const parsed = HireSchema.safeParse(body);

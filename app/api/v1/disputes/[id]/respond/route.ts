@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { respondToDispute } from "@/lib/dispute";
 import { z } from "zod";
 
@@ -24,6 +25,9 @@ export async function POST(
   const { id } = await ctx.params;
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
+
+  const rl = await redisRateLimit(`dispute-respond:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => null);
   const parsed = Body.safeParse(body);

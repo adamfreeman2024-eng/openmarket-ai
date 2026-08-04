@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { expireEscrows } from "@/lib/settlement";
 
 export const runtime = "nodejs";
@@ -17,6 +18,8 @@ export function OPTIONS() {
  */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
+  const rl = await redisRateLimit(`escrow-expire:${clientKey(req)}`, 10, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   const op = process.env.OPERATOR_API_KEY?.trim();
   if (op) {
     const key = req.headers.get("x-operator-key") || "";

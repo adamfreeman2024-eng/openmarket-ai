@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
 import { onChainRelease, onChainRefund, hashScanUrl } from "@/lib/onchain-escrow-live";
@@ -28,6 +29,8 @@ export async function POST(
 ) {
   ensureSeedCatalog();
   const op = process.env.OPERATOR_API_KEY?.trim();
+  const rl = await redisRateLimit(`escrow-resolve:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
   if (!op) {
     return json(
       {

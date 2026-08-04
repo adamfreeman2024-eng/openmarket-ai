@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { cache } from "@/lib/cache";
 import { getBalance, debitAgent } from "@/lib/agent-ledger";
 
@@ -36,6 +37,9 @@ export async function POST(
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
   const { id } = await ctx.params;
+
+  const rl = await redisRateLimit(`offer-action:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const o = db.getOffer(id);
   if (!o) return json({ ok: false, error: "Not found" }, 404);

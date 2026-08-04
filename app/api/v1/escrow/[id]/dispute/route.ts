@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
 import { createDispute } from "@/lib/dispute";
@@ -31,6 +32,9 @@ export async function POST(
   if (escrow.status !== "locked") {
     return json({ ok: false, error: `Escrow status ${escrow.status}` }, 409);
   }
+
+  const rl = await redisRateLimit(`escrow-dispute:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => null);
   const parsed = Body.safeParse(body);

@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { ensureSeedCatalog } from "@/lib/store";
 import { json, options, getApiKey } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { getWorkflow, getRun, listRuns } from "@/lib/workflow-store";
 import { executeWorkflow } from "@/lib/workflow";
 
@@ -51,6 +52,9 @@ export async function POST(
   if (!canAccess(req, wf.ownerAgentId)) {
     return json({ ok: false, error: "Forbidden" }, 403);
   }
+
+  const rl = await redisRateLimit(`workflow-run:${clientKey(req)}`, 10, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => null);
   const parsed = RunSchema.safeParse(body || {});

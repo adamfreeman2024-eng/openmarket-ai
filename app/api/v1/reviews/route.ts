@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { addReview, getReviewStats } from "@/lib/reputation-v2";
 
 export const runtime = "nodejs";
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   ensureSeedCatalog();
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
+
+  const rl = await redisRateLimit(`review:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => ({}));
   const agentId = String(body.agentId || "").trim();

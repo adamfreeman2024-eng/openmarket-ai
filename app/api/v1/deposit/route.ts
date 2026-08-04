@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { ensureSeedCatalog, audit } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { creditAgent, getBalance } from "@/lib/agent-ledger";
 import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
 
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
   ensureSeedCatalog();
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
+
+  const rl = await redisRateLimit(`deposit:${clientKey(req)}`, 30, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const body = await req.json().catch(() => null);
   const parsed = DepositSchema.safeParse(body);
