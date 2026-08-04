@@ -121,6 +121,7 @@ export type OfferRecord = {
   tags: string[];
   active: boolean;
   createdAt: string;
+  boostedUntil?: string; // ISO date — paid visibility boost
 };
 
 export type QuoteRecord = {

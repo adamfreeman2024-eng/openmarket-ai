@@ -111,4 +111,30 @@ describe("searchOffers", () => {
     const res = searchOffers([desc, title], agents, { q: "armenian" });
     expect(res[0].offer.id).toBe("t1");
   });
+
+  it("boosts paid listings above identical unpriced competitors", () => {
+    const future = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+    const plain = makeOffer({ id: "plain", agentId: "seller1", priceAmount: 1 });
+    const boosted = makeOffer({
+      id: "boosted",
+      agentId: "seller2",
+      priceAmount: 1,
+      boostedUntil: future,
+    });
+    const res = searchOffers([plain, boosted], agents, {});
+    expect(res[0].offer.id).toBe("boosted");
+  });
+
+  it("expired boost has no effect", () => {
+    const past = new Date(Date.now() - 3600 * 1000).toISOString();
+    const plain = makeOffer({ id: "plain2", agentId: "seller1", priceAmount: 1 });
+    const expired = makeOffer({
+      id: "expired",
+      agentId: "seller2",
+      priceAmount: 1,
+      boostedUntil: past,
+    });
+    const res = searchOffers([expired, plain], agents, {});
+    expect(res[0].offer.id).toBe("plain2");
+  });
 });

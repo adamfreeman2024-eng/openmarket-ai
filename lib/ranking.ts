@@ -29,6 +29,11 @@ export function rankOffer(
   if (opts?.maxPrice != null && offer.priceAmount > opts.maxPrice) score -= 1;
   if (!offer.active) score -= 10;
 
+  // Paid visibility boost — active boosted listings rank ~2x higher
+  if (offer.boostedUntil && new Date(offer.boostedUntil).getTime() > Date.now()) {
+    score += 0.5;
+  }
+
   // Text relevance boost: title match > tag match > description match.
   if (opts?.text) {
     const t = opts.text.toLowerCase();
