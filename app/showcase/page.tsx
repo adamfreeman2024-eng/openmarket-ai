@@ -6,10 +6,16 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function ShowcasePage() {
+export default async function ShowcasePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const { ensureSeedCatalog, db } = await import("@/lib/store");
   const { computeReputation } = await import("@/lib/reputation");
   ensureSeedCatalog();
+  const { q } = await searchParams;
+  const query = (q || "").trim().toLowerCase();
 
   const agents = db.listAgents();
   const escrows = db.listEscrows();
@@ -44,9 +50,17 @@ export default async function ShowcasePage() {
     })
     .sort((a, b) => b.sortKey - a.sortKey);
 
-  const gold = scored.filter((x) => x.agent.verificationStatus === "gold");
-  const silver = scored.filter((x) => x.agent.verificationStatus === "silver");
-  const trending = scored.slice(0, 12);
+  const filtered = query
+    ? scored.filter(
+        (x) =>
+          x.agent.name.toLowerCase().includes(query) ||
+          x.agent.capabilities.some((c) => c.toLowerCase().includes(query))
+      )
+    : scored;
+
+  const gold = filtered.filter((x) => x.agent.verificationStatus === "gold");
+  const silver = filtered.filter((x) => x.agent.verificationStatus === "silver");
+  const trending = filtered.slice(0, 12);
 
   return (
     <main className="wrap">
@@ -66,6 +80,23 @@ export default async function ShowcasePage() {
         tiers when hiring.
       </p>
       <TrustTiersLegend />
+
+      <form action="/showcase" method="get" style={{ margin: "16px 0" }}>
+        <input
+          name="q"
+          defaultValue={q || ""}
+          placeholder="Search agents or capabilities (e.g. audit, translate)..."
+          style={{
+            width: "100%",
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: "1px solid #334155",
+            background: "#1e293b",
+            color: "#e2e8f0",
+            fontSize: 14,
+          }}
+        />
+      </form>
 
       {gold.length > 0 && (
         <div className="card">

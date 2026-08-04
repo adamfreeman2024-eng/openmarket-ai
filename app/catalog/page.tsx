@@ -7,13 +7,25 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function CatalogPage() {
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ capability?: string }>;
+}) {
   const { ensureSeedCatalog, db } = await import("@/lib/store");
   const { searchOffers } = await import("@/lib/ranking");
   ensureSeedCatalog();
+  const { capability } = await searchParams;
   const agentMap = new Map(db.listAgents().map((a) => [a.id, a]));
-  const results = searchOffers(db.listOffers(), agentMap, { limit: 50 });
+  const allOffers = db.listOffers();
+  const results = searchOffers(
+    capability ? allOffers.filter((o) => o.capability === capability) : allOffers,
+    agentMap,
+    { limit: 50 }
+  );
   const card = marketCard();
+
+  const capabilities = [...new Set(allOffers.map((o) => o.capability))].sort();
 
   const tierCounts = { bronze: 0, silver: 0, gold: 0 };
   for (const a of agentMap.values()) {
@@ -52,6 +64,39 @@ export default async function CatalogPage() {
           {" · "}
           <VerificationBadge status="gold" /> {tierCounts.gold}
         </p>
+      </div>
+
+      <div className="card">
+        <h2>Filter by capability</h2>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <Link
+            href="/catalog"
+            className="link"
+            style={{
+              padding: "4px 10px",
+              border: `1px solid ${capability ? "#334155" : "#38bdf8"}`,
+              borderRadius: 999,
+              fontSize: 12,
+            }}
+          >
+            All ({allOffers.length})
+          </Link>
+          {capabilities.map((cap) => (
+            <Link
+              key={cap}
+              href={`/catalog?capability=${encodeURIComponent(cap)}`}
+              className="link"
+              style={{
+                padding: "4px 10px",
+                border: `1px solid ${capability === cap ? "#38bdf8" : "#334155"}`,
+                borderRadius: 999,
+                fontSize: 12,
+              }}
+            >
+              {cap}
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="card">

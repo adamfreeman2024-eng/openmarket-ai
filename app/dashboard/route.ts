@@ -19,6 +19,35 @@ export async function GET() {
   const failed = orders.filter((o) => o.status === "failed").length;
   const lockedEscrows = escrows.filter((e) => e.status === "locked").length;
 
+  // Revenue by asset (completed orders only)
+  const hbarVolume = orders
+    .filter((o) => o.status === "completed" && o.priceAsset === "HBAR")
+    .reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+  const usdcVolume = orders
+    .filter((o) => o.status === "completed" && o.priceAsset === "USDC")
+    .reduce((s, o) => s + (o.totalAmount ?? 0), 0);
+
+  // Settlement status flag
+  const settlementFlag = ALLOW_DEV_FAKE_SETTLEMENT
+    ? '<span class="badge yellow">TESTNET</span>'
+    : '<span class="badge live">STRICT</span>';
+
+  // Capability distribution bars
+  const capCounts = new Map<string, number>();
+  for (const o of offers) {
+    capCounts.set(o.capability, (capCounts.get(o.capability) || 0) + 1);
+  }
+  const capEntries = [...capCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const capMax = capEntries.length ? capEntries[0][1] : 1;
+  const capabilityBars = capEntries.length
+    ? capEntries
+        .map(
+          ([cap, n]) =>
+            `<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;"><span style="width:200px;font-size:12px;color:#94a3b8;font-family:monospace;">${cap}</span><div style="flex:1;background:#1e293b;border-radius:4px;overflow:hidden;"><div style="width:${Math.round((n / capMax) * 100)}%;background:#38bdf8;height:14px;border-radius:4px;"></div></div><span style="width:30px;font-size:12px;color:#e2e8f0;">${n}</span></div>`
+        )
+        .join("")
+    : '<p style="color:#64748b;font-size:13px;">No offers yet</p>';
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +98,14 @@ td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
 <div class="card"><div class="label">Failed Orders</div><div class="value red">${failed}</div></div>
 <div class="card"><div class="label">Locked Escrows</div><div class="value yellow">${lockedEscrows}</div></div>
 <div class="card"><div class="label">Escrow Contract</div><div class="value">${isEscrowContractLive() ? '<span class="badge live">LIVE</span>' : '<span class="badge off">OFF</span>'}</div></div>
+<div class="card"><div class="label">HBAR Volume</div><div class="value green">${hbarVolume} ℏ</div></div>
+<div class="card"><div class="label">USDC Volume</div><div class="value">${usdcVolume} USDC</div></div>
+<div class="card"><div class="label">Settlement</div><div class="value">${settlementFlag}</div></div>
+</div>
+
+<div class="section">
+<h2>💊 Capability Distribution</h2>
+${capabilityBars}
 </div>
 
 <div class="section">
