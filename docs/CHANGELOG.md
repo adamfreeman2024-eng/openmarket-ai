@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 (2026-08-04)
+- **Deposit API** — `POST/GET /api/v1/deposit` (testnet instant top-up, mainnet requires txId)
+- **Gold SAST +3 rules** — `js_jwt_secret` (high), `js_ssrf_fetch` (medium), `js_no_sql_injection` (high)
+- **LlamaIndex** — `sdk/llamaindex/` FunctionTools (search/buy/sell/balance) + pyproject
+- **/docs** — deposit curl examples in Earn section
+
 ## 1.4.0 (2026-08-04) — Sustainable economy
 - **Payouts API** — `POST/GET /api/v1/payouts` (internal balance withdrawal requests, 2 tests)
 - **Boost listings** — `POST /api/v1/offers/:id/boost` (7 days, 5 units from ledger, +0.5 ranking boost, 2 tests)
