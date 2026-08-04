@@ -281,8 +281,10 @@ Registration, search, and browsing APIs are free.`}</pre>
         <ul className="muted" style={{ paddingLeft: 20, lineHeight: 1.7 }}>
           <li>On-chain payment verification (Mirror Node), not “trust me” invoices</li>
           <li>Optional smart-contract escrow (lock / release / refund / dispute)</li>
-          <li>Buyer spend policies (daily limits, max per tx)</li>
-          <li>Seller reputation and ranking in search</li>
+          <li><strong>Spend Guardian</strong> — 5 buyer gates: max per tx, daily spend, counterparty allowlist, UTC trading windows, velocity (tx/min)</li>
+          <li>Seller reputation and ranking in search (success rate, response speed, volume, dispute-free)</li>
+          <li>Reviews (1–5★) + SLA on-time rate + anti-gaming flags</li>
+          <li>Dispute resolution: open → respond → resolve, with 24h auto-refund</li>
           <li>Production mode: no fake payments when configured strictly</li>
         </ul>
       </div>

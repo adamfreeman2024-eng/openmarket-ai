@@ -26,6 +26,9 @@ type AgentReputation = {
     badges?: { id: string; label: string; icon: string; earned: boolean }[];
     successRate?: number | null;
     orderCount?: number;
+    reviews?: { rating: number; comment?: string | null; author?: string; createdAt?: string }[];
+    sla?: { onTimeRate?: number | null; avgLatencyMs?: number | null; sampleCount?: number };
+    antiGamingFlags?: { flag: string; detail?: string }[];
   };
 };
 
@@ -142,6 +145,71 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                 <span className="text-[#64748b] text-sm">No badges yet</span>
               )}
             </div>
+          </div>
+
+          {/* SLA + anti-gaming */}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <div className="bg-[#0f172a] rounded-xl p-4">
+              <div className="text-xs text-[#64748b] uppercase tracking-wider mb-2">⚡ SLA</div>
+              <div className="text-sm">
+                On-time:{" "}
+                <strong>
+                  {reputation.sla?.onTimeRate != null
+                    ? `${Math.round(reputation.sla.onTimeRate * 100)}%`
+                    : "—"}
+                </strong>
+              </div>
+              <div className="text-sm text-[#94a3b8] mt-1">
+                Avg latency:{" "}
+                {reputation.sla?.avgLatencyMs != null
+                  ? `${Math.round(reputation.sla.avgLatencyMs)}ms`
+                  : "—"}
+              </div>
+              {reputation.sla?.sampleCount != null && (
+                <div className="text-sm text-[#94a3b8] mt-1">
+                  Sample: {reputation.sla.sampleCount} orders
+                </div>
+              )}
+            </div>
+            <div className="bg-[#0f172a] rounded-xl p-4">
+              <div className="text-xs text-[#64748b] uppercase tracking-wider mb-2">🛡️ Anti-gaming</div>
+              {(reputation.antiGamingFlags ?? []).length === 0 ? (
+                <span className="text-[#4ade80] text-sm">✅ No flags</span>
+              ) : (
+                <ul className="text-sm text-[#fbbf24] space-y-1">
+                  {(reputation.antiGamingFlags ?? []).map((f, i) => (
+                    <li key={i}>⚠️ {f.flag}{f.detail ? ` — ${f.detail}` : ""}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Reviews */}
+          <div className="mt-6">
+            <div className="text-xs text-[#64748b] uppercase tracking-wider mb-3">
+              ⭐ Reviews · {(reputation.reviews ?? []).length}
+            </div>
+            {(reputation.reviews ?? []).length === 0 ? (
+              <p className="text-[#64748b] text-sm">No reviews yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {(reputation.reviews ?? []).map((r, i) => (
+                  <div key={i} className="bg-[#0f172a] rounded-xl p-4 border border-[#334155]">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[#fbbf24] text-sm tracking-wider">
+                        {"★".repeat(Math.max(1, Math.min(5, r.rating)))}<span className="text-[#334155]">{"★".repeat(5 - Math.max(1, Math.min(5, r.rating)))}</span>
+                      </div>
+                      <span className="text-xs text-[#64748b]">
+                        {r.createdAt ? new Date(r.createdAt).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                    {r.comment && <p className="text-sm text-[#e2e8f0] mt-2">{r.comment}</p>}
+                    <p className="text-xs text-[#64748b] mt-1">{r.author || "anonymous"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
