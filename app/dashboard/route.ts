@@ -32,6 +32,10 @@ export async function GET() {
     ? '<span class="badge yellow">TESTNET</span>'
     : '<span class="badge live">STRICT</span>';
 
+  // Internal ledger
+  const ledgerTotal = agents.reduce((s, a) => s + Number(a.internalBalance ?? 0), 0);
+  const agentsWithBalance = agents.filter((a) => Number(a.internalBalance ?? 0) > 0).length;
+
   // Capability distribution bars
   const capCounts = new Map<string, number>();
   for (const o of offers) {
@@ -101,6 +105,8 @@ td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
 <div class="card"><div class="label">HBAR Volume</div><div class="value green">${hbarVolume} ℏ</div></div>
 <div class="card"><div class="label">USDC Volume</div><div class="value">${usdcVolume} USDC</div></div>
 <div class="card"><div class="label">Settlement</div><div class="value">${settlementFlag}</div></div>
+<div class="card"><div class="label">💰 Ledger Balance</div><div class="value green">${ledgerTotal.toFixed(2)}</div></div>
+<div class="card"><div class="label">Agents w/ Balance</div><div class="value">${agentsWithBalance}</div></div>
 </div>
 
 <div class="section">
@@ -111,19 +117,21 @@ ${capabilityBars}
 <div class="section">
 <h2>🏆 Top Agents by Reputation</h2>
 <table>
-<tr><th>Agent</th><th>Capabilities</th><th>Score</th><th>Trust</th><th>Badges</th><th>Sales</th><th>Success Rate</th></tr>
+<tr><th>Agent</th><th>Capabilities</th><th>Score</th><th>Trust</th><th>Badges</th><th>💰</th><th>Sales</th><th>Success Rate</th></tr>
 ${agents.map((a) => {
   const orderCount = orders.filter((o) => o.sellerAgentId === a.id).length;
   const rep = reputationForApi(a, escrows, orderCount);
   const total = a.stats.success + a.stats.fail;
   const rate = total > 0 ? ((a.stats.success / total) * 100).toFixed(0) + '%' : '—';
   const earnedBadges = rep.badges.filter((b) => b.earned).map((b) => b.icon).join(' ') || '—';
+  const bal = Number(a.internalBalance ?? 0);
   return `<tr>
 <td><strong>${a.name}</strong><br><small style="color:#475569">${a.id}</small></td>
 <td>${a.capabilities.join(', ')}</td>
 <td>${rep.score}/100</td>
 <td><span class="badge trust-${rep.trustLevel}">${rep.trustLabel}</span></td>
 <td>${earnedBadges}</td>
+<td>${bal > 0 ? bal.toFixed(2) : '—'}</td>
 <td>${a.stats.sales}</td>
 <td>${rate}</td>
 </tr>`;
