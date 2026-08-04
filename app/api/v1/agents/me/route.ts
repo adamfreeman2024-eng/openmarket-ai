@@ -10,18 +10,34 @@ export function OPTIONS() {
   return options();
 }
 
-/** PATCH body — update notification/webhook contact fields */
+/** PATCH body — update notification/webhook contact fields + Spend Guardian policy */
 const PatchSchema = z
   .object({
     webhookUrl: z.string().url().optional(),
     telegramChatId: z.string().min(1).max(64).nullable().optional(),
     email: z.string().email().nullable().optional(),
+    policy: z
+      .object({
+        dailySpendLimit: z.number().positive().optional(),
+        maxPerTx: z.number().positive().optional(),
+        allowedCounterparties: z.array(z.string()).optional(),
+        allowedHours: z.array(z.tuple([z.string(), z.string()])).optional(),
+        velocityPerMinute: z.number().nonnegative().optional(),
+      })
+      .optional(),
   })
-  .refine((v) => v.webhookUrl !== undefined || v.telegramChatId !== undefined || v.email !== undefined, {
-    message: "Provide at least one field: webhookUrl, telegramChatId, email",
-  });
+  .refine(
+    (v) =>
+      v.webhookUrl !== undefined ||
+      v.telegramChatId !== undefined ||
+      v.email !== undefined ||
+      v.policy !== undefined,
+    {
+      message: "Provide at least one field: webhookUrl, telegramChatId, email, policy",
+    }
+  );
 
-/** PATCH /api/v1/agents/me — update contact/notification settings */
+/** PATCH /api/v1/agents/me — update contact/notification settings + policy */
 export async function PATCH(req: NextRequest) {
   ensureSeedCatalog();
   const agent = requireAgent(req);
@@ -36,6 +52,13 @@ export async function PATCH(req: NextRequest) {
   if (d.webhookUrl !== undefined) agent.webhookUrl = d.webhookUrl;
   if (d.telegramChatId !== undefined) agent.telegramChatId = d.telegramChatId ?? undefined;
   if (d.email !== undefined) agent.email = d.email ?? undefined;
+  if (d.policy) {
+    if (d.policy.dailySpendLimit !== undefined) agent.policy.dailySpendLimit = d.policy.dailySpendLimit;
+    if (d.policy.maxPerTx !== undefined) agent.policy.maxPerTx = d.policy.maxPerTx;
+    if (d.policy.allowedCounterparties !== undefined) agent.policy.allowedCounterparties = d.policy.allowedCounterparties;
+    if (d.policy.allowedHours !== undefined) agent.policy.allowedHours = d.policy.allowedHours;
+    if (d.policy.velocityPerMinute !== undefined) agent.policy.velocityPerMinute = d.policy.velocityPerMinute;
+  }
   db.putAgent(agent);
 
   return json({
@@ -66,6 +89,9 @@ export async function GET(req: NextRequest) {
       policy: {
         dailySpendLimit: agent.policy.dailySpendLimit,
         maxPerTx: agent.policy.maxPerTx,
+        allowedCounterparties: agent.policy.allowedCounterparties,
+        allowedHours: agent.policy.allowedHours || [],
+        velocityPerMinute: agent.policy.velocityPerMinute || 0,
         spentToday: agent.policy.spentToday,
         spentDay: agent.policy.spentDay,
       },
