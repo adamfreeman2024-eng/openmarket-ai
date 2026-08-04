@@ -163,6 +163,28 @@ describe("policy TimeWindow", () => {
     expect(tw?.allowed).toBe(true);
   });
 
+  it("supports overnight windows (end < start)", () => {
+    const agent = mockAgent({
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 10,
+        allowedCounterparties: [],
+        allowedHours: [["22:00", "02:00"]],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-07-19",
+        spentAt: [],
+      },
+    });
+    const now = new Date();
+    const mins = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const res = evaluateBuyerPolicy(agent, 1);
+    const tw = res.find((r) => r.policy === "TimeWindow");
+    // overnight window covers 22:00..23:59 and 00:00..01:59
+    const inside = mins >= 22 * 60 || mins < 2 * 60;
+    expect(tw?.allowed).toBe(inside);
+  });
+
   it("blocks when no window covers now", () => {
     // force a window that cannot contain the current UTC minute (unless it IS exactly 00:00:xx)
     const agent = mockAgent({
