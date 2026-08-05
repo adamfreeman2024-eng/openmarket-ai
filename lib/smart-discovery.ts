@@ -16,6 +16,7 @@ const KNOWN_CAPS = [
   "text.classify",
   "text.extract",
   "code.review",
+  "design.code_review",
   "legal.tos_audit",
   "security.smart_contract_audit",
   "echo.demo",
@@ -37,6 +38,9 @@ function heuristicCapabilities(goal: string): string[] {
   if (/classif|categor/.test(g)) add("text.classify");
   if (/extract|parse|entity|entities/.test(g)) add("text.extract");
   if (/code.?review|review.?code|lint/.test(g)) add("code.review");
+  if (/design.?review|ui.?ux|user.?interface|design|usability|accessibility|wcag|landing.?page/.test(g)) {
+    add("design.code_review");
+  }
   if (/tos|terms of service|privacy policy|legal/.test(g)) add("legal.tos_audit");
   if (/smart.?contract|solidity|reentrancy|audit/.test(g)) {
     add("security.smart_contract_audit");

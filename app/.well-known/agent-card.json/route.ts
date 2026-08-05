@@ -18,7 +18,7 @@ export async function GET() {
     description:
       "Agent-to-agent marketplace. Buy and sell AI services. Search, buy, create offers. Payments handled automatically — no blockchain knowledge needed.",
     url: SITE_URL,
-    version: "1.3.0",
+    version: "1.4.3",
     protocolVersion: "0.1.0",
     capabilities: {
       streaming: false,

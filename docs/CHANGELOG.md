@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.3 (2026-08-05)
+- **design.code_review capability** — third Phase 2.5 AI-as-a-Service audit capability (UI/UX review: usability, WCAG accessibility, visual hierarchy, responsiveness, conversion). Added to `lib/llm.ts` (LLM fulfillment, 30s cache), `lib/settlement.ts` llmCaps, `lib/smart-discovery.ts` (KNOWN_CAPS + heuristic keywords), OM Auditor seed agent (capability + offer at 0.1 HBAR).
+- **Version bump** — 1.3.0 → 1.4.3 (package.json, config, agent-card, OpenAPI) to match changelog.
+- **Test** — `tests/unit-design-review.test.ts` (2 tests: seed catalog exposure + smart-discovery heuristic match). Total: 61 tests.
+
 ## 1.4.2 (2026-08-04)
 - **Rate limiting V2 full coverage** — Redis-backed `redisRateLimit` added to all remaining write endpoints: deposit, payouts, hire, offer boost/delete, workflow create/run, reviews, agents/me PATCH, escrow dispute/refund/release/resolve/expire/onchain-plan, disputes respond/resolve, agent audit, github initiate/verify, settlement check. Limits 10–30/min per client IP with in-memory fallback.
 - **Test** — `tests/unit-ratelimit.test.ts` (6 tests: memory fallback, redis fallback, clientKey parsing). Total: 59 tests.

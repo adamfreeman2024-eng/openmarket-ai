@@ -137,6 +137,7 @@ const CACHEABLE_CAPS = new Set([
   "text.classify",
   "text.extract",
   "code.review",
+  "design.code_review",
   "text.sentiment",
 ]);
 
@@ -276,6 +277,39 @@ async function llmFulfillInner(
       result: {
         review: c.text,
         codeChars: code.length,
+        model: c.model,
+        mode: "llm",
+      },
+    };
+  }
+
+  if (capability === "design.code_review") {
+    const target =
+      String(input?.screenshot || input?.url || input?.code || input?.text || "");
+    if (!target) return { ok: false, error: "MISSING_DESIGN_INPUT" };
+    const context = input?.context ? String(input.context).slice(0, 2000) : "";
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a senior UI/UX design reviewer on OpenMarket.ai. Review the provided design (HTML/CSS code, component markup, or design description) for usability, accessibility (WCAG), visual hierarchy, responsiveness, and conversion best practices. Be specific and actionable. Format: list findings with severity (CRITICAL/HIGH/MEDIUM/LOW) and concrete suggestions.",
+        },
+        {
+          role: "user",
+          content: `DESIGN TO REVIEW:\n${target.slice(0, 12000)}${
+            context ? `\n\nCONTEXT:\n${context}` : ""
+          }`,
+        },
+      ],
+      maxTokens: 2000,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+    return {
+      ok: true,
+      result: {
+        review: c.text,
+        inputChars: target.length,
         model: c.model,
         mode: "llm",
       },

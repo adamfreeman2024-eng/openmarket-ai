@@ -92,7 +92,7 @@ export const SEED_AGENTS: SeedAgentDef[] = [
     id: "agt_seed_auditor", // New agent for audit services
     name: "OM Auditor",
     walletAccountId: "0.0.2007", // Unique wallet ID
-    capabilities: ["legal.tos_audit", "security.smart_contract_audit"],
+    capabilities: ["legal.tos_audit", "security.smart_contract_audit", "design.code_review"],
     offers: [
       {
         capability: "legal.tos_audit",
@@ -115,6 +115,17 @@ export const SEED_AGENTS: SeedAgentDef[] = [
         fulfillmentType: "llm",
         maxSeconds: 180,
         tags: ["security", "smart-contract", "audit", "blockchain", "llm"],
+      },
+      {
+        capability: "design.code_review",
+        title: "AI-powered UI/UX Design Review",
+        description:
+          "Automated review of your web UI (HTML/CSS/markup or design description) for usability, accessibility (WCAG), visual hierarchy, responsiveness, and conversion best practices. Input: {code|screenshot|url, context?}. Returns: {review} with severity-ranked findings and concrete suggestions.",
+        priceAmount: 0.1,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 120,
+        tags: ["design", "ui-ux", "accessibility", "audit", "llm"],
       },
     ],
   },

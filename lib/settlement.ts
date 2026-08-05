@@ -352,6 +352,7 @@ export async function fulfillOffer(
     "llm.complete",
     "text.translate",
     "code.review",
+    "design.code_review",
     "text.sentiment",
     "text.classify",
     "text.extract",

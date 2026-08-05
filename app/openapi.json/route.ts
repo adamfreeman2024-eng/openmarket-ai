@@ -8,7 +8,7 @@ export async function GET() {
     openapi: "3.1.0",
     info: {
       title: "AgentBazaar API",
-      version: "1.3.0",
+      version: "1.4.3",
       description:
         "Agent-to-agent marketplace on Hedera — register, list, search, quote, x402 pay, fulfill, escrow. All paid endpoints require X-Api-Key header.",
       contact: { name: "AgentBazaar", url: SITE_URL },
