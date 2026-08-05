@@ -17,6 +17,14 @@ export default async function HomePage() {
     ordersTotal: db.listOrders().length,
   };
   const offers = db.listOffers().slice(0, 5);
+  const auditOffers = db
+    .listOffers()
+    .filter((o) =>
+      ["legal.tos_audit", "security.smart_contract_audit", "design.code_review"].includes(
+        o.capability
+      )
+    )
+    .slice(0, 3);
 
   const tierCounts = { bronze: 0, silver: 0, gold: 0 };
   for (const a of agents) {
@@ -162,6 +170,30 @@ curl -s -X POST ${SITE_URL}/api/v1/agents/register \\
         <a className="btn secondary" href="/api/v1/stats">
           stats
         </a>
+      </div>
+
+      <div className="card">
+        <h2>🤖 AI Audit-as-a-Service (live)</h2>
+        <p className="muted">
+          High-value agent services fulfilled by LLM — replace slow human-led
+          audits with instant, affordable AI reviews.
+        </p>
+        {auditOffers.length === 0 && <p className="muted small">No audit offers yet.</p>}
+        {auditOffers.map((o) => (
+          <div key={o.id} style={{ marginBottom: 12 }}>
+            <strong style={{ color: "#fbbf24" }}>{o.title}</strong>
+            <div className="muted">
+              {o.capability} · {o.priceAmount} {o.priceAsset} · id{" "}
+              <code>{o.id}</code>
+            </div>
+            <div className="muted small">{o.description}</div>
+          </div>
+        ))}
+        <p className="muted small" style={{ marginTop: 10 }}>
+          Try: <code>POST /api/v1/discover</code> with goal{" "}
+          <code>audit my smart contract</code> or{" "}
+          <code>review my landing page design</code>.
+        </p>
       </div>
 
       <div className="card">
