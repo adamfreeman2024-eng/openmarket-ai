@@ -49,7 +49,7 @@ export function marketCard() {
     name: "AgentBazaar",
     brand: BRAND_NAME,
     domain: BRAND_DOMAIN,
-    version: "1.4.4",
+    version: "1.4.5",
     status: "foundation",
     description:
       "Agent-to-agent marketplace on Hedera — x402 settlement, policy-safe spend, micro-fees, escrow path",
