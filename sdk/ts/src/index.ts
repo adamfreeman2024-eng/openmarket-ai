@@ -90,6 +90,73 @@ export interface CreateOfferInput {
   tags?: string[];
 }
 
+/** Notification record from the agent inbox */
+export interface NotificationRecord {
+  id: string;
+  agentId: string;
+  event: string;
+  title: string;
+  message: string;
+  data?: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+}
+
+/** Deposit input — top up internal ledger balance */
+export interface DepositInput {
+  amount: number;
+  asset?: "hbar" | "usdc" | "internal";
+  txId?: string;
+}
+
+/** Payout request input — seller withdraws earned internal balance */
+export interface PayoutInput {
+  amount: number;
+  method?: "hbar" | "usdc" | "manual";
+  account?: string;
+}
+
+/** Public reputation profile (V2: reviews + SLA + badges + escrow stats) */
+export interface ReputationProfile {
+  ok: boolean;
+  agent?: {
+    id: string;
+    name: string;
+    walletAccountId: string;
+    capabilities: string[];
+    createdAt: string;
+    stats: {
+      sales: number;
+      purchases: number;
+      success: number;
+      fail: number;
+      totalLatencyMs: number;
+    };
+  };
+  reputation?: {
+    score: number;
+    trustLevel: number;
+    trustLabel: string;
+    badges?: { id: string; label: string; icon: string; earned: boolean }[];
+    successRate?: number | null;
+    orderCount?: number;
+    reviews?: { rating: number; comment?: string | null; author?: string; createdAt?: string }[];
+    sla?: { onTimeRate?: number | null; avgLatencyMs?: number | null; sampleCount?: number };
+    antiGamingFlags?: { flag: string; detail?: string }[];
+  };
+  orders?: {
+    total: number;
+    completed: number;
+    recent: Array<Record<string, unknown>>;
+  };
+  escrows?: {
+    total: number;
+    released: number;
+    disputed: number;
+    refunded: number;
+  };
+}
+
 /** Generic API response */
 interface ApiResponse<T = unknown> {
   ok: boolean;
@@ -471,6 +538,86 @@ export class OpenMarket {
       method: "POST",
       body: JSON.stringify({ reason }),
     });
+  }
+
+  /** Get internal ledger balance + deposit mode (auth required) */
+  async getBalance(): Promise<{
+    ok: boolean;
+    balance: number;
+    mode: string;
+  }> {
+    return this.request("/api/v1/deposit");
+  }
+
+  /**
+   * Deposit — top up internal ledger balance.
+   * On testnet, deposits credit instantly (demo/hackathon mode).
+   * On mainnet, a real HBAR/USDC transfer + txId is required.
+   */
+  async deposit(input: DepositInput): Promise<{
+    ok: boolean;
+    balance: number;
+    mode: string;
+  }> {
+    return this.request("/api/v1/deposit", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** List notification inbox (auth required) */
+  async listNotifications(limit = 50): Promise<{
+    ok: boolean;
+    agentId: string;
+    unread: number;
+    notifications: NotificationRecord[];
+  }> {
+    return this.request(`/api/v1/notifications?limit=${limit}`);
+  }
+
+  /** Mark all notifications read (auth required) */
+  async markAllNotificationsRead(): Promise<{
+    ok: boolean;
+    marked: number;
+  }> {
+    return this.request("/api/v1/notifications", { method: "POST" });
+  }
+
+  /** List own payout requests + current balance (auth required) */
+  async listPayouts(): Promise<{
+    ok: boolean;
+    balance: number;
+    payouts: Array<Record<string, unknown>>;
+  }> {
+    return this.request("/api/v1/payouts");
+  }
+
+  /** Request a payout — seller withdrawal (operator settles manually on testnet) */
+  async requestPayout(input: PayoutInput): Promise<{
+    ok: boolean;
+    payout: Record<string, unknown>;
+    balance: number;
+  }> {
+    return this.request("/api/v1/payouts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Boost an offer — 7-day paid visibility boost (from internal balance) */
+  async boostOffer(offerId: string): Promise<{
+    ok: boolean;
+    boostedUntil: string;
+    balance: number;
+  }> {
+    return this.request(`/api/v1/offers/${offerId}/boost`, {
+      method: "POST",
+    });
+  }
+
+  /** Public reputation profile — reviews, SLA, badges, escrow stats */
+  async getReputation(agentId: string): Promise<ReputationProfile> {
+    return this.request(`/api/v1/agents/${agentId}/reputation`);
   }
 
   /** Get market health */

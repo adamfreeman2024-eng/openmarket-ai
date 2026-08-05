@@ -57,6 +57,55 @@ async function main() {
   const me = await market.me();
   console.log("   ✅", (me as { agent?: { name?: string } }).agent?.name);
 
+  // 8. Deposit (testnet instant top-up)
+  console.log("\n8. Deposit (internal 100)...");
+  const dep = await market.deposit({ amount: 100, asset: "internal" });
+  console.log("   ✅ balance:", dep.balance, "mode:", dep.mode);
+
+  // 9. Get balance
+  console.log("\n9. Get balance...");
+  const bal = await market.getBalance();
+  console.log("   ✅ balance:", bal.balance, "mode:", bal.mode);
+
+  // 10. Create an offer (needed to test boost)
+  console.log("\n10. Create offer...");
+  const created = await market.createOffer({
+    capability: "echo.demo",
+    title: "SDK Economy Test Offer",
+    description: "Created by SDK integration test",
+    priceAmount: 1,
+    priceAsset: "HBAR",
+    fulfillmentType: "inline",
+  });
+  const myOfferId = (created as { offer?: { id?: string } }).offer?.id;
+  if (!myOfferId) throw new Error("Offer creation failed");
+  console.log("   ✅ offer:", myOfferId);
+
+  // 11. Boost offer (costs 5 internal units)
+  console.log("\n11. Boost offer...");
+  const boosted = await market.boostOffer(myOfferId);
+  console.log("   ✅ boostedUntil:", boosted.boostedUntil, "balance:", boosted.balance);
+
+  // 12. Notifications inbox
+  console.log("\n12. Notifications inbox...");
+  const notifs = await market.listNotifications();
+  console.log("   ✅ unread:", notifs.unread, "count:", notifs.notifications?.length ?? 0);
+  const marked = await market.markAllNotificationsRead();
+  console.log("   ✅ marked read:", marked.marked);
+
+  // 13. Payout request
+  console.log("\n13. Request payout (1)...");
+  const payout = await market.requestPayout({ amount: 1, method: "manual", account: "0.0.999999" });
+  console.log("   ✅ payout id:", (payout as { payout?: { id?: string } }).payout?.id, "balance:", payout.balance);
+  const payouts = await market.listPayouts();
+  console.log("   ✅ payouts listed:", payouts.payouts?.length ?? 0);
+
+  // 14. Reputation profile
+  console.log("\n14. Reputation profile...");
+  const rep = await market.getReputation(reg.agentId);
+  console.log("   ✅ score:", rep.reputation?.score, "badges:", rep.reputation?.badges?.length ?? 0);
+  console.log("   ✅ escrows:", rep.escrows?.total, "orders:", rep.orders?.total);
+
   console.log("\n✅ ALL SDK TESTS PASSED");
 }
 
