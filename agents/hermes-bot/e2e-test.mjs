@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // End-to-end test: buy Hermes's own text.summarize offer with devFakePay.
 const BASE = process.env.BASE || "http://127.0.0.1:3010";
-const OFFER_ID = process.env.OFFER_ID || "off_FFxiArtKLHyS"; // text.summarize
+const OFFER_ID = process.env.OFFER_ID || "off_E2DxhTJtqJ2e"; // text.summarize (hermes bot)
 
 async function api(path, opts = {}) {
   const r = await fetch(`${BASE}${path}`, { headers: { "content-type": "application/json" }, ...opts });

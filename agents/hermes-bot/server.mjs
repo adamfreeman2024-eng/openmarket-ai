@@ -43,7 +43,7 @@ const WALLET_ACCOUNT_ID = process.env.WALLET_ACCOUNT_ID || "0.0.9587214";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "429384890";
 const HERMES_BIN = process.env.HERMES_BIN || "hermes";
 const HERMES_PROMPT_PREFIX = process.env.HERMES_PROMPT_PREFIX || "You are Hermes Agent (Nous Research), fulfilling a paid order on the AgentBazaar marketplace. Be direct, professional and concise. Respond in the same language as the buyer's input unless the task explicitly asks otherwise.";
-const MAX_LLM_SECONDS = Number(process.env.MAX_LLM_SECONDS || 50);
+const MAX_LLM_SECONDS = Number(process.env.MAX_LLM_SECONDS || 52);
 
 const STATE_FILE = path.join(__dirname, "state.json");
 const ORDERS_LOG = path.join(__dirname, "orders.jsonl");
@@ -115,7 +115,7 @@ async function register() {
         priceAmount: c.price,
         priceAsset: "HBAR",
         fulfillmentType: "webhook",
-        maxSeconds: 55,
+        maxSeconds: 60,
         tags: ["hermes", c.capability.split(".")[1]],
       }),
     });
@@ -126,19 +126,38 @@ async function register() {
 }
 
 // ─── Hermes run ───
-function runHermes(prompt) {
+const ERROR_PATTERNS = [
+  /API call failed after \d+ retries/i,
+  /No available channel for model/i,
+  /HTTP 50\d/i,
+  /rate\s*limit/i,
+  /upstream request timeout/i,
+  /model.*(?:unavailable|not found|does not exist)/i,
+];
+function looksLikeError(text) {
+  return ERROR_PATTERNS.some((re) => re.test(text));
+}
+function cleanChildEnv() {
+  const env = { ...process.env, HERMES_NONINTERACTIVE: "1" };
+  // Remove provider env vars so the child uses config.yaml providers only
+  for (const k of Object.keys(env)) {
+    if (/^TOKENROUTER_|^LLM_|^OPENAI_|^ANTHROPIC_|^GOOGLE_/i.test(k)) delete env[k];
+  }
+  return env;
+}
+function runHermesOnce(prompt, timeoutSeconds = MAX_LLM_SECONDS) {
   return new Promise((resolve) => {
     const t0 = Date.now();
     const args = ["chat", "-Q", "-q", prompt];
     const child = spawn(HERMES_BIN, args, {
-      env: { ...process.env, HERMES_NONINTERACTIVE: "1" },
-      timeout: MAX_LLM_SECONDS * 1000,
+      env: cleanChildEnv(),
+      timeout: timeoutSeconds * 1000,
     });
     let out = "";
     let err = "";
     const timer = setTimeout(() => {
       try { child.kill("SIGKILL"); } catch {}
-    }, MAX_LLM_SECONDS * 1000);
+    }, timeoutSeconds * 1000);
 
     child.stdout.on("data", (d) => { out += d.toString(); if (out.length > 180_000) out = out.slice(0, 180_000); });
     child.stderr.on("data", (d) => { err += d.toString(); if (err.length > 20_000) err = err.slice(0, 20_000); });
@@ -160,10 +179,31 @@ function runHermes(prompt) {
         resolve({ ok: false, error: `hermes exited ${code}: ${(err || "").slice(-500)}`, latencyMs });
       } else if (!text) {
         resolve({ ok: false, error: "empty response", latencyMs });
+      } else if (looksLikeError(text)) {
+        resolve({ ok: false, error: `model/provider error surfaced as output: ${text.slice(0, 300)}`, latencyMs });
       } else {
         resolve({ ok: true, text, latencyMs });
       }
     });
+  });
+}
+function runHermes(prompt) {
+  // One retry for transient provider failures — budget-aware so the total
+  // (attempt 1 + backoff + attempt 2) always fits under the marketplace
+  // webhook timeout (offer.maxSeconds, currently 60).
+  const MARKET_BUDGET_SECONDS = 60;
+  const OVERHEAD_SECONDS = 4;
+  const t0 = Date.now();
+  return runHermesOnce(prompt).then((r) => {
+    if (!r.ok && r.error?.startsWith("model/provider error")) {
+      const elapsed = Date.now() - t0;
+      const remaining = MARKET_BUDGET_SECONDS - elapsed - OVERHEAD_SECONDS;
+      if (remaining >= 15) {
+        const secondCap = Math.min(MAX_LLM_SECONDS, remaining);
+        return new Promise((resolve) => setTimeout(() => resolve(runHermesOnce(prompt, secondCap)), 1000));
+      }
+    }
+    return r;
   });
 }
 
@@ -190,10 +230,10 @@ function buildPrompt(capability, input) {
       user = `Complete the following. Output only the result.\n\nINPUT:\n${s(input?.prompt || input?.text || input)}`.slice(0, 12000);
       break;
     case "code.review":
-      user = `Review the following code for bugs, security issues, performance problems, and best-practice violations. Output a structured review with severity labels (CRITICAL/HIGH/MEDIUM/LOW) and suggested fixes.\n\nCODE:\n${s(input?.code || input?.text || input)}`.slice(0, 15000);
+      user = `Review the following code for bugs, security issues, performance problems, and best-practice violations. Output a structured review with severity labels (CRITICAL/HIGH/MEDIUM/LOW) and suggested fixes. You have a tight time budget (~45 seconds): prefer direct analysis; if you use tools, keep it to at most one quick check.\n\nCODE:\n${s(input?.code || input?.text || input)}`.slice(0, 15000);
       break;
     case "hermes.task":
-      user = `You are Hermes, an autonomous agent running on the AgentBazaar marketplace. Execute the following task using your tools (terminal, files, web search, etc.). You have a very limited time budget (~40 seconds). Do the most important part of the task, then report the result concisely.\n\nTASK:\n${s(input?.task || input?.description || input)}`.slice(0, 8000);
+      user = `You are Hermes, an autonomous agent running on the AgentBazaar marketplace. Execute the following task using your tools (terminal, files, web search, etc.). You have a very limited time budget (~50 seconds). Do the most important part of the task, then report the result concisely.\n\nTASK:\n${s(input?.task || input?.description || input)}`.slice(0, 8000);
       break;
     default:
       user = `Handle the following request and output the result.\n\nREQUEST:\n${s(input?.text || input)}`.slice(0, 12000);

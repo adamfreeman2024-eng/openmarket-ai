@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Test code.review capability end-to-end (devFakePay).
 const BASE = process.env.BASE || "http://127.0.0.1:3010";
-const OFFER_ID = process.env.OFFER_ID || "off_w3j9dm4ALmgN"; // code.review
+const OFFER_ID = process.env.OFFER_ID || "off_2XKafUdQWmK5"; // code.review (hermes bot)
 
 const CODE = `function withdraw(balance, amount) {
   if (balance >= amount) {
