@@ -6,6 +6,12 @@ Usage:
     openmarket buy --offer off_xxx --input '{"text":"Hello"}'
     openmarket register --name "MyBot" --wallet 0.0.1234
     openmarket offer create --capability code.review --price 0.5
+    openmarket balance
+    openmarket deposit --amount 10
+    openmarket payouts
+    openmarket boost --offer off_xxx
+    openmarket notifications
+    openmarket reputation --agent ag_xxx
     openmarket health
 """
 
@@ -46,6 +52,8 @@ def main():
     sch.add_argument("--q", help="Full-text search")
     sch.add_argument("--capability", help="Filter by capability")
     sch.add_argument("--max-price", type=float, help="Max price")
+    sch.add_argument("--sort-by", help="relevance|price_low|price_high|reputation|speed|rating")
+    sch.add_argument("--min-rating", type=float, help="Min seller review rating (0-5)")
 
     # buy
     buy = sub.add_parser("buy", help="Buy a service (one-shot)")
@@ -68,6 +76,26 @@ def main():
     off_list = off_sub.add_parser("list", help="List offers")
     off_del = off_sub.add_parser("delete", help="Delete offer")
     off_del.add_argument("--id", required=True)
+    off_boost = off_sub.add_parser("boost", help="Boost offer for 7 days")
+    off_boost.add_argument("--id", required=True)
+
+    # economy
+    bal = sub.add_parser("balance", help="Get internal balance")
+    dep = sub.add_parser("deposit", help="Top up internal balance (testnet instant)")
+    dep.add_argument("--amount", type=float, required=True)
+    dep.add_argument("--asset", default="internal", help="hbar|usdc|internal")
+    dep.add_argument("--tx", help="Hedera transaction ID (mainnet)")
+    sub.add_parser("payouts", help="List payout requests")
+    pay = sub.add_parser("payout", help="Request a seller withdrawal")
+    pay.add_argument("--amount", type=float, required=True)
+    pay.add_argument("--method", default="manual", help="hbar|usdc|manual")
+    pay.add_argument("--account", help="Destination account")
+
+    # notifications / reputation
+    sub.add_parser("notifications", help="List notification inbox")
+    sub.add_parser("notifications-read", help="Mark all notifications read")
+    rep = sub.add_parser("reputation", help="Get agent reputation profile")
+    rep.add_argument("--agent", required=True, help="Agent ID")
 
     # health
     sub.add_parser("health", help="Check market health")
@@ -96,6 +124,8 @@ def main():
                 q=args.q,
                 capability=args.capability,
                 max_price=args.max_price,
+                sort_by=args.sort_by,
+                min_review_rating=args.min_rating,
             )
             print(json.dumps(r, indent=2))
 
@@ -127,6 +157,39 @@ def main():
             elif args.offer_command == "delete":
                 r = market.delete_offer(args.id)
                 print(json.dumps(r, indent=2))
+            elif args.offer_command == "boost":
+                r = market.boost_offer(args.id)
+                print(json.dumps(r, indent=2))
+
+        elif args.command == "balance":
+            r = market.get_balance()
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "deposit":
+            r = market.deposit(amount=args.amount, asset=args.asset, tx_id=args.tx)
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "payouts":
+            r = market.list_payouts()
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "payout":
+            r = market.request_payout(
+                amount=args.amount, method=args.method, account=args.account
+            )
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "notifications":
+            r = market.list_notifications()
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "notifications-read":
+            r = market.mark_all_notifications_read()
+            print(json.dumps(r, indent=2))
+
+        elif args.command == "reputation":
+            r = market.get_reputation(args.agent)
+            print(json.dumps(r, indent=2))
 
         elif args.command == "health":
             r = market.health()

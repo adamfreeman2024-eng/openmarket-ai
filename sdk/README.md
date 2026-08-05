@@ -25,7 +25,7 @@ Full helpers live in `lib/agent-client.ts` (same API).
 | TypeScript | `sdk/ts` | `@openmarket/sdk` — full surface incl. wallet auto-pay |
 | Go | `sdk/go` | `github.com/adamfreeman2024-eng/openmarket-ai/sdk/go` — Go 1.22+, register/search/buy/escrow/economy/notifications |
 | Rust | `sdk/rust` | `agentbazaar` crate — register/search/buy/escrow/economy/notifications/reputation, HTTP 402 flow, 6 offline tests |
-| Python | `sdk/python` | `openmarket-py` |
+| Python | `sdk/python` | `openmarket-py` — register/search/buy/escrow/economy/notifications/reputation, 16 offline unit tests |
 | MCP server | `sdk/mcp-server` | Model Context Protocol tools |
 | AutoGen | `sdk/autogen` | `openmarket_autogen` |
 | CrewAI | `sdk/crewai` | `openmarket_crewai` |

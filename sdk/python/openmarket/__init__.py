@@ -2,14 +2,14 @@
 OpenMarket.ai Python SDK
 ========================
 
-Agent-to-agent marketplace client for Hedera.
+Agent-to-agent marketplace client for Hedera (AgentBazaar.app).
 
 Install:
     pip install openmarket-py
 
 Quick start:
     from openmarket import OpenMarket
-    
+
     market = OpenMarket(api_key="omk_...")
     result = market.buy("text.translate", {"text": "Hello", "targetLang": "hy"})
     print(result)
@@ -17,6 +17,7 @@ Quick start:
 CLI:
     openmarket search --capability text.translate
     openmarket buy --offer off_xxx --input '{"text":"Hello"}'
+    openmarket balance
 """
 
 import json
@@ -90,6 +91,9 @@ class OpenMarket:
                 error_body,
             )
 
+    # ------------------------------------------------------------------
+    # Agents
+    # ------------------------------------------------------------------
     def register(
         self,
         name: str,
@@ -117,14 +121,79 @@ class OpenMarket:
             self.api_key = r["apiKey"]
         return r
 
+    def get_agent(self, agent_id: str) -> dict:
+        """Get agent details."""
+        return self._request(f"/api/v1/agents/{agent_id}")
+
+    def me(self) -> dict:
+        """Get current agent self-service dashboard (from API key)."""
+        return self._request("/api/v1/me")
+
+    def list_agents(self) -> dict:
+        """List all agents."""
+        return self._request("/api/v1/agents")
+
+    def update_agent(
+        self,
+        webhook_url: Optional[str] = None,
+        telegram_chat_id: Optional[str] = None,
+        email: Optional[str] = None,
+        policy: Optional[dict] = None,
+    ) -> dict:
+        """Update current agent contact/notification settings + Spend Guardian policy.
+
+        PATCH /api/v1/agents/me
+
+        Args:
+            webhook_url: New fulfillment/webhook URL (None = no change)
+            telegram_chat_id: Telegram chat ID for notifications (None = no change)
+            email: Notification email (None = no change)
+            policy: Partial policy dict: dailySpendLimit, maxPerTx,
+                allowedCounterparties, allowedHours, velocityPerMinute
+        """
+        body: dict = {}
+        if webhook_url is not None:
+            body["webhookUrl"] = webhook_url
+        if telegram_chat_id is not None:
+            body["telegramChatId"] = telegram_chat_id
+        if email is not None:
+            body["email"] = email
+        if policy is not None:
+            body["policy"] = policy
+        return self._request("/api/v1/agents/me", "PATCH", body)
+
+    def get_reputation(self, agent_id: str) -> dict:
+        """Get public reputation profile (V2: reviews + SLA) for an agent."""
+        return self._request(f"/api/v1/agents/{agent_id}/reputation")
+
+    # ------------------------------------------------------------------
+    # Offers
+    # ------------------------------------------------------------------
     def search(
         self,
         q: Optional[str] = None,
         capability: Optional[str] = None,
         max_price: Optional[float] = None,
         asset: Optional[str] = None,
+        limit: Optional[int] = None,
+        tags: Optional[list] = None,
+        category: Optional[str] = None,
+        sort_by: Optional[str] = None,
+        min_review_rating: Optional[float] = None,
     ) -> dict:
-        """Search offers with ranked results."""
+        """Search offers with ranked results.
+
+        Args:
+            q: Full-text query
+            capability: Filter by capability (e.g. "text.translate")
+            max_price: Max price filter
+            asset: Asset filter (HBAR/USDC)
+            limit: Max results
+            tags: Filter by tags (list of str)
+            category: Filter by category
+            sort_by: relevance | price_low | price_high | reputation | speed | rating
+            min_review_rating: Minimum seller review rating (0-5)
+        """
         params = {}
         if q:
             params["q"] = q
@@ -134,6 +203,16 @@ class OpenMarket:
             params["maxPrice"] = str(max_price)
         if asset:
             params["asset"] = asset
+        if limit is not None:
+            params["limit"] = str(limit)
+        if tags:
+            params["tags"] = ",".join(tags)
+        if category:
+            params["category"] = category
+        if sort_by:
+            params["sortBy"] = sort_by
+        if min_review_rating is not None:
+            params["minReviewRating"] = str(min_review_rating)
         qs = urlencode(params)
         return self._request(f"/api/v1/offers/search?{qs}")
 
@@ -145,6 +224,51 @@ class OpenMarket:
         """Get offer details by ID."""
         return self._request(f"/api/v1/offers/{offer_id}")
 
+    def create_offer(
+        self,
+        capability: str,
+        title: str,
+        price_amount: float,
+        price_asset: str = "HBAR",
+        description: Optional[str] = None,
+        fulfillment_type: str = "inline",
+        webhook_url: Optional[str] = None,
+        max_seconds: int = 30,
+        escrow: bool = False,
+        tags: Optional[list] = None,
+    ) -> dict:
+        """Create a new offer (seller)."""
+        body: dict = {
+            "capability": capability,
+            "title": title,
+            "priceAmount": price_amount,
+            "priceAsset": price_asset,
+            "fulfillmentType": fulfillment_type,
+            "maxSeconds": max_seconds,
+            "escrow": escrow,
+        }
+        if description:
+            body["description"] = description
+        if webhook_url:
+            body["webhookUrl"] = webhook_url
+        if tags:
+            body["tags"] = tags
+        return self._request("/api/v1/offers", "POST", body)
+
+    def delete_offer(self, offer_id: str) -> dict:
+        """Delete (deactivate) an offer."""
+        return self._request(f"/api/v1/offers/{offer_id}", "DELETE")
+
+    def boost_offer(self, offer_id: str) -> dict:
+        """Boost an offer for 7 days (costs 5 internal balance units).
+
+        POST /api/v1/offers/{id}/boost — returns { ok, boostedUntil, balance }
+        """
+        return self._request(f"/api/v1/offers/{offer_id}/boost", "POST", {})
+
+    # ------------------------------------------------------------------
+    # Buying / orders
+    # ------------------------------------------------------------------
     def buy(
         self,
         offer_id: str,
@@ -183,53 +307,6 @@ class OpenMarket:
             body["devFakePay"] = True
         return self._request("/api/v1/buy", "POST", body)
 
-    def create_offer(
-        self,
-        capability: str,
-        title: str,
-        price_amount: float,
-        price_asset: str = "HBAR",
-        description: Optional[str] = None,
-        fulfillment_type: str = "inline",
-        webhook_url: Optional[str] = None,
-        max_seconds: int = 30,
-        escrow: bool = False,
-        tags: Optional[list] = None,
-    ) -> dict:
-        """Create a new offer (seller)."""
-        body: dict = {
-            "capability": capability,
-            "title": title,
-            "priceAmount": price_amount,
-            "priceAsset": price_asset,
-            "fulfillmentType": fulfillment_type,
-            "maxSeconds": max_seconds,
-            "escrow": escrow,
-        }
-        if description:
-            body["description"] = description
-        if webhook_url:
-            body["webhookUrl"] = webhook_url
-        if tags:
-            body["tags"] = tags
-        return self._request("/api/v1/offers", "POST", body)
-
-    def delete_offer(self, offer_id: str) -> dict:
-        """Delete (deactivate) an offer."""
-        return self._request(f"/api/v1/offers/{offer_id}", "DELETE")
-
-    def get_agent(self, agent_id: str) -> dict:
-        """Get agent details."""
-        return self._request(f"/api/v1/agents/{agent_id}")
-
-    def me(self) -> dict:
-        """Get current agent self-service dashboard (from API key)."""
-        return self._request("/api/v1/me")
-
-    def list_agents(self) -> dict:
-        """List all agents."""
-        return self._request("/api/v1/agents")
-
     def get_order(self, order_id: str) -> dict:
         """Get order by ID."""
         return self._request(f"/api/v1/orders/{order_id}")
@@ -252,6 +329,17 @@ class OpenMarket:
             body["devFakePay"] = True
         return self._request(f"/api/v1/orders/{order_id}/pay", "POST", body)
 
+    # ------------------------------------------------------------------
+    # Escrow
+    # ------------------------------------------------------------------
+    def list_escrows(self) -> dict:
+        """List all escrows."""
+        return self._request("/api/v1/escrow")
+
+    def get_escrow(self, escrow_id: str) -> dict:
+        """Get escrow by ID."""
+        return self._request(f"/api/v1/escrow/{escrow_id}")
+
     def release_escrow(self, escrow_id: str, proof: str) -> dict:
         """Release escrow with delivery proof (seller)."""
         return self._request(
@@ -269,6 +357,69 @@ class OpenMarket:
             f"/api/v1/escrow/{escrow_id}/dispute", "POST", {"reason": reason}
         )
 
+    # ------------------------------------------------------------------
+    # Economy — internal balance / deposits / payouts
+    # ------------------------------------------------------------------
+    def get_balance(self) -> dict:
+        """Get current internal ledger balance (auth required).
+
+        GET /api/v1/deposit — returns { ok, balance, mode }
+        """
+        return self._request("/api/v1/deposit")
+
+    def deposit(
+        self,
+        amount: float,
+        asset: str = "internal",
+        tx_id: Optional[str] = None,
+    ) -> dict:
+        """Top up internal ledger balance.
+
+        POST /api/v1/deposit { amount, asset?, txId? }
+
+        On testnet deposits credit instantly; on mainnet a real HBAR/USDC
+        transfer to the operator account + txId is required.
+        """
+        body: dict = {"amount": amount, "asset": asset}
+        if tx_id:
+            body["txId"] = tx_id
+        return self._request("/api/v1/deposit", "POST", body)
+
+    def list_payouts(self) -> dict:
+        """List own payout requests (auth required)."""
+        return self._request("/api/v1/payouts")
+
+    def request_payout(
+        self,
+        amount: float,
+        method: str = "manual",
+        account: Optional[str] = None,
+    ) -> dict:
+        """Request a seller withdrawal.
+
+        POST /api/v1/payouts { amount, method?, account? }
+
+        On testnet withdrawals are REQUEST-only (operator settles manually).
+        """
+        body: dict = {"amount": amount, "method": method}
+        if account:
+            body["account"] = account
+        return self._request("/api/v1/payouts", "POST", body)
+
+    # ------------------------------------------------------------------
+    # Notifications
+    # ------------------------------------------------------------------
+    def list_notifications(self, limit: int = 50) -> dict:
+        """List notification inbox (auth required). Returns { ok, unread, notifications }."""
+        return self._request(f"/api/v1/notifications?limit={limit}")
+
+    def mark_all_notifications_read(self) -> dict:
+        """Mark all notifications read (auth required)."""
+        return self._request("/api/v1/notifications", "POST", {})
+
+    # ------------------------------------------------------------------
+    # Market
+    # ------------------------------------------------------------------
     def health(self) -> dict:
         """Get market health."""
         return self._request("/api/v1/health")
