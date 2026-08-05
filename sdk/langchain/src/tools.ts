@@ -1,180 +1,176 @@
 /**
- * LangChain tools wrapping OpenMarket SDK.
- * Each tool is a StructuredTool that LangChain agents can use directly.
+ * AgentBazaar tools for LangChain — each tool is a DynamicStructuredTool that
+ * LangChain / LangGraph agents can use directly (search, buy, sell, balance).
+ *
+ * The tools wrap the public AgentBazaar REST API via the official
+ * `agentbazaar-sdk` TypeScript client. No secrets are embedded here — pass
+ * your API key via config or `AGENTBAZAAR_API_KEY` env.
  */
-import { Tool } from "@langchain/core/tools";
-import { OpenMarket } from "@openmarket/sdk";
+import { DynamicStructuredTool } from "@langchain/core/tools";
+import { z } from "zod";
+import { OpenMarket } from "agentbazaar-sdk";
 
-/** Configuration for OpenMarket LangChain tools */
-export interface OpenMarketToolConfig {
+/** Configuration for AgentBazaar LangChain tools */
+export interface AgentBazaarToolConfig {
+  /** AgentBazaar instance base URL. Default: SDK default (localhost:3000) */
   baseUrl?: string;
+  /** API key from /agents/register. Required for buy/sell. */
   apiKey?: string;
 }
 
-/** Collection of LangChain tools for OpenMarket marketplace */
-export class OpenMarketLangChainTools {
+/**
+ * Collection of LangChain tools for the AgentBazaar marketplace.
+ *
+ * Each getter returns an independent tool instance; `allTools` returns all of
+ * them in a single array ready for any LangChain agent.
+ */
+export class AgentBazaarLangChainTools {
   private market: OpenMarket;
 
-  constructor(config: OpenMarketToolConfig = {}) {
+  constructor(config: AgentBazaarToolConfig = {}) {
     this.market = new OpenMarket(config);
   }
 
-  /** Search marketplace for services */
-  get searchTool(): Tool {
-    return new OpenMarketSearchTool(this.market);
+  /** Search the marketplace for agent services */
+  get searchTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_search",
+      description:
+        "Search AgentBazaar for AI agent services. Returns ranked offers with price, seller and score. " +
+        "Pass q (keyword/capability like text.translate, code.review, audit), capability (exact capability) and/or maxPrice (in HBAR).",
+      schema: z.object({
+        q: z.string().optional().describe("keyword or capability, e.g. text.translate, code.review"),
+        capability: z.string().optional().describe("exact capability filter"),
+        maxPrice: z.number().optional().describe("maximum price in HBAR"),
+      }),
+      func: async ({ q, capability, maxPrice }) => {
+        try {
+          const result = await this.market.search({ q, capability, maxPrice });
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
   }
 
-  /** Buy a service from marketplace */
-  get buyTool(): Tool {
-    return new OpenMarketBuyTool(this.market);
+  /** Buy a service (one-shot, pays from the configured wallet) */
+  get buyTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_buy",
+      description:
+        "Buy a service on AgentBazaar (one-shot purchase). " +
+        "Input: offerId (from search), input (JSON object for the service, e.g. {text:'Hello', targetLang:'hy'}), " +
+        "devFakePay (optional, use true on testnet to skip real payment).",
+      schema: z.object({
+        offerId: z.string().describe("offer id from agentbazaar_search"),
+        input: z.record(z.string(), z.unknown()).optional().describe("service input JSON object"),
+        devFakePay: z.boolean().optional().describe("skip real payment (testnet only)"),
+      }),
+      func: async ({ offerId, input, devFakePay }) => {
+        try {
+          const result = await this.market.buy(offerId, input, { devFakePay });
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
   }
 
-  /** Create an offer (sell a service) */
-  get createOfferTool(): Tool {
-    return new OpenMarketCreateOfferTool(this.market);
+  /** List a new service offer so other agents can buy from you */
+  get createOfferTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_create_offer",
+      description:
+        "List a new service offer on AgentBazaar so other agents can buy from you. " +
+        "Input: capability (required, e.g. text.translate), title (required), priceAmount (required, in HBAR or USDC), " +
+        "description, priceAsset (HBAR|USDC), fulfillmentType (llm|inline|webhook|manual), tags.",
+      schema: z.object({
+        capability: z.string().describe("service capability, e.g. text.translate"),
+        title: z.string().describe("offer title"),
+        priceAmount: z.number().positive().describe("price in priceAsset units"),
+        description: z.string().optional(),
+        priceAsset: z.enum(["HBAR", "USDC"]).optional().describe("default HBAR"),
+        fulfillmentType: z.enum(["llm", "inline", "webhook", "manual"]).optional().describe("default llm"),
+        tags: z.array(z.string()).optional(),
+      }),
+      func: async (args) => {
+        try {
+          const result = await this.market.createOffer(args);
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
   }
 
-  /** List all active offers */
-  get listOffersTool(): Tool {
-    return new OpenMarketListOffersTool(this.market);
+  /** List all active offers on the marketplace */
+  get listOffersTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_list_offers",
+      description: "List all active offers on the AgentBazaar marketplace.",
+      schema: z.object({}),
+      func: async () => {
+        try {
+          const result = await this.market.listOffers();
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
   }
 
-  /** Check marketplace health */
-  get healthTool(): Tool {
-    return new OpenMarketHealthTool(this.market);
+  /** Check the agent's internal ledger balance and stats */
+  get balanceTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_balance",
+      description:
+        "Check your AgentBazaar internal ledger balance, sales/purchase counts and reputation.",
+      schema: z.object({}),
+      func: async () => {
+        try {
+          const result = await this.market.getBalance();
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
   }
 
-  /** Get all tools as array */
-  get allTools(): Tool[] {
+  /** Check marketplace health and stats */
+  get healthTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+      name: "agentbazaar_health",
+      description: "Check AgentBazaar marketplace health and stats.",
+      schema: z.object({}),
+      func: async () => {
+        try {
+          const result = await this.market.health();
+          return JSON.stringify(result, null, 2);
+        } catch (e) {
+          return errorString(e);
+        }
+      },
+    });
+  }
+
+  /** All tools as an array, ready for any LangChain agent */
+  get allTools(): DynamicStructuredTool[] {
     return [
       this.searchTool,
       this.buyTool,
       this.createOfferTool,
       this.listOffersTool,
+      this.balanceTool,
       this.healthTool,
     ];
   }
 }
 
-// --- Individual Tools ---
-
-class OpenMarketSearchTool extends Tool {
-  name = "openmarket_search";
-  description = `Search the OpenMarket.ai marketplace for agent services.
-Input: JSON object with optional fields:
-  - capability (string): Service type like "text.translate", "code.review", "text.summarize"
-  - q (string): Full-text search query
-  - maxPrice (number): Maximum price in HBAR
-Returns: JSON array of ranked offers with seller reputation.`;
-
-  constructor(private market: OpenMarket) {
-    super();
-  }
-
-  async _call(input: string): Promise<string> {
-    try {
-      const params = JSON.parse(input || "{}");
-      const result = await this.market.search({
-        capability: params.capability,
-        q: params.q,
-        maxPrice: params.maxPrice,
-      });
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return `Error: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-}
-
-class OpenMarketBuyTool extends Tool {
-  name = "openmarket_buy";
-  description = `Buy a service from OpenMarket.ai marketplace.
-Input: JSON object with:
-  - offerId (string, required): Offer ID from search results
-  - input (object): Service input (e.g. {text: "Hello", targetLang: "hy"})
-  - devFakePay (boolean): Use fake payment for testing (optional)
-Returns: Order result with fulfillment output.`;
-
-  constructor(private market: OpenMarket) {
-    super();
-  }
-
-  async _call(input: string): Promise<string> {
-    try {
-      const params = JSON.parse(input || "{}");
-      const result = await this.market.buy(
-        params.offerId,
-        params.input,
-        { devFakePay: params.devFakePay }
-      );
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return `Error: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-}
-
-class OpenMarketCreateOfferTool extends Tool {
-  name = "openmarket_create_offer";
-  description = `Create a service offer on OpenMarket.ai.
-Input: JSON object with:
-  - capability (string, required): Service type
-  - title (string, required): Offer title
-  - priceAmount (number, required): Price in HBAR
-  - description (string): Optional description
-Returns: Created offer details.`;
-
-  constructor(private market: OpenMarket) {
-    super();
-  }
-
-  async _call(input: string): Promise<string> {
-    try {
-      const params = JSON.parse(input || "{}");
-      const result = await this.market.createOffer({
-        capability: params.capability,
-        title: params.title,
-        priceAmount: params.priceAmount,
-        description: params.description,
-        fulfillmentType: "llm",
-      });
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return `Error: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-}
-
-class OpenMarketListOffersTool extends Tool {
-  name = "openmarket_list_offers";
-  description = "List all active offers on OpenMarket.ai marketplace.";
-  constructor(private market: OpenMarket) {
-    super();
-  }
-
-  async _call(): Promise<string> {
-    try {
-      const result = await this.market.listOffers();
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return `Error: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
-}
-
-class OpenMarketHealthTool extends Tool {
-  name = "openmarket_health";
-  description = "Check OpenMarket.ai marketplace health and stats.";
-  constructor(private market: OpenMarket) {
-    super();
-  }
-
-  async _call(): Promise<string> {
-    try {
-      const result = await this.market.health();
-      return JSON.stringify(result, null, 2);
-    } catch (e) {
-      return `Error: ${e instanceof Error ? e.message : String(e)}`;
-    }
-  }
+function errorString(e: unknown): string {
+  return `Error: ${e instanceof Error ? e.message : String(e)}`;
 }

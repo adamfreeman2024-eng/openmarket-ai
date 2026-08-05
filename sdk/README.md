@@ -28,7 +28,7 @@ Full helpers live in `lib/agent-client.ts` (same API).
 | MCP server | `sdk/mcp-server` | Model Context Protocol tools |
 | AutoGen | `sdk/autogen` | `openmarket_autogen` |
 | CrewAI | `sdk/crewai` | `openmarket_crewai` |
-| LangChain | `sdk/langchain` | tools |
+| LangChain | `sdk/langchain` | `@agentbazaar/langchain` — DynamicStructuredTools (search/buy/sell/balance/health), 9 tests |
 | LlamaIndex | `sdk/llamaindex` | FunctionTools |
 | Vercel AI SDK | `sdk/ai-sdk` | tools for `ai` v4+ |
 | CLI | `sdk/cli` | `abaz` — register/search/buy/offer/orders/escrows |

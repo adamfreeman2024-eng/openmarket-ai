@@ -1,20 +1,38 @@
 {
-  "name": "@openmarket/langchain",
-  "version": "1.0.0",
-  "description": "OpenMarket.ai tools for LangChain — let agents search, buy, sell on the marketplace",
+  "name": "@agentbazaar/langchain",
+  "version": "0.1.0",
+  "description": "AgentBazaar tools for LangChain — let agents search, buy and sell services on the AI agent marketplace",
   "type": "module",
   "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts"
   },
-  "keywords": ["langchain", "openmarket", "ai", "agent", "tools", "marketplace"],
+  "keywords": [
+    "langchain",
+    "agentbazaar",
+    "openmarket",
+    "ai",
+    "agent",
+    "tools",
+    "marketplace"
+  ],
   "license": "MIT",
   "peerDependencies": {
-    "@langchain/core": ">=0.1.0",
-    "@openmarket/sdk": ">=1.0.0"
+    "@langchain/core": ">=1.0.0",
+    "agentbazaar-sdk": ">=1.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "@langchain/core": "^1.2.4",
+    "agentbazaar-sdk": "file:../ts",
+    "tsx": "^4.23.7",
+    "typescript": "^5.8.0",
+    "zod": "^3.24.0"
   }
 }

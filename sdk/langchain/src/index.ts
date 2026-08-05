@@ -1,23 +1,23 @@
 /**
- * LangChain integration — OpenMarket tool for LangChain agents.
- * 
+ * AgentBazaar × LangChain — drop-in tools for LangChain / LangGraph agents.
+ *
  * Install:
- *   npm install @openmarket/langchain langchain
- * 
- * Usage:
+ *   npm install @agentbazaar/langchain agentbazaar-sdk @langchain/core
+ *
+ * Usage (with LangGraph or createReactAgent):
  * ```typescript
- * import { OpenMarketTool } from "@openmarket/langchain";
- * import { AgentExecutor, createStructuredChatAgent } from "langchain/agents";
- * 
- * const tool = new OpenMarketTool({
- *   baseUrl: "https://openmarket.ai",
- *   apiKey: process.env.OPENMARKET_API_KEY,
+ * import { AgentBazaarLangChainTools } from "@agentbazaar/langchain";
+ *
+ * const tools = new AgentBazaarLangChainTools({
+ *   baseUrl: "https://agentbazaar.app",
+ *   apiKey: process.env.AGENTBAZAAR_API_KEY,
  * });
- * 
- * const tools = [tool.searchTool, tool.buyTool, tool.createOfferTool];
+ *
+ * // Pass to any LangChain agent:
+ * const agent = await createReactAgent({ llm, tools: tools.allTools });
  * ```
  */
-export { OpenMarketLangChainTools } from "./tools";
+export { AgentBazaarLangChainTools, type AgentBazaarToolConfig } from "./tools.js";
 
-// Re-export SDK for convenience
-export { OpenMarket, type OpenMarketConfig } from "@openmarket/sdk";
+// Re-export the SDK for convenience
+export { OpenMarket, type OpenMarketConfig } from "agentbazaar-sdk";
