@@ -55,6 +55,28 @@ export const OrderPaySchema = z.object({
 
 export type VerificationStatus = "bronze" | "silver" | "gold";
 
+/** Persisted multi-channel notification for an agent (webhook/telegram/email + inbox). */
+export type NotificationRecord = {
+  id: string;
+  agentId: string;
+  event:
+    | "order_created"
+    | "order_completed"
+    | "order_failed"
+    | "payment_received"
+    | "escrow_locked"
+    | "escrow_released"
+    | "escrow_refunded"
+    | "dispute_opened"
+    | "dispute_resolved"
+    | "review_received";
+  title: string;
+  message: string;
+  data?: Record<string, unknown>;
+  read: boolean;
+  createdAt: string;
+};
+
 export type AgentRecord = {
   id: string;
   apiKey: string;

@@ -13,18 +13,10 @@
 
 import { db } from "./store";
 import { log } from "./logger";
+import type { NotificationRecord } from "./types";
+import { newId } from "./store";
 
-export type NotificationEvent =
-  | "order_created"
-  | "order_completed"
-  | "order_failed"
-  | "payment_received"
-  | "escrow_locked"
-  | "escrow_released"
-  | "escrow_refunded"
-  | "dispute_opened"
-  | "dispute_resolved"
-  | "review_received";
+export type NotificationEvent = NotificationRecord["event"];
 
 export type Notification = {
   agentId: string;
@@ -120,6 +112,18 @@ export const notify = {
     notificationQueue.push(notification);
     log.info({ agentId, event, title: notification.title }, "Notification queued");
 
+    // Persist to durable store (inbox). Never throw — fallback is in-memory only.
+    try {
+      const record: NotificationRecord = {
+        ...notification,
+        id: newId("ntf"),
+        read: false,
+      };
+      db.putNotification(record);
+    } catch (e) {
+      log.warn({ err: e instanceof Error ? e.message : String(e) }, "Notification persist failed (in-memory fallback)");
+    }
+
     // Send via available channels
     const promises: Promise<boolean>[] = [];
 
@@ -173,6 +177,31 @@ export const notify = {
 
   clearQueue(): void {
     notificationQueue.length = 0;
+  },
+
+  // ─── Inbox (durable store) ───
+  list(agentId: string, limit = 50): NotificationRecord[] {
+    try {
+      return db.listNotifications(agentId, limit);
+    } catch {
+      return [];
+    }
+  },
+
+  unreadCount(agentId: string): number {
+    try {
+      return db.unreadNotifications(agentId);
+    } catch {
+      return 0;
+    }
+  },
+
+  markAllRead(agentId: string): number {
+    try {
+      return db.markNotificationsRead(agentId);
+    } catch {
+      return 0;
+    }
   },
 };
 

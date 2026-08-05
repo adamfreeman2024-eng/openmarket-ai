@@ -8,7 +8,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/store", () => ({
   db: {
     getAgent: vi.fn(),
+    putNotification: vi.fn(),
   },
+  newId: vi.fn((prefix: string) => `${prefix}_test`),
 }));
 
 vi.mock("@/lib/logger", () => ({
@@ -29,6 +31,13 @@ describe("notify formatting", () => {
 
     await notify.agent("agt_1", "order_completed", { orderId: "ord_123", offerId: "off_1", result: { ok: true } });
     // No throw = success; webhook/telegram/email all no-op without contact fields.
+    expect(db.putNotification).toHaveBeenCalledTimes(1);
+    const rec = (db.putNotification as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(rec.agentId).toBe("agt_1");
+    expect(rec.event).toBe("order_completed");
+    expect(rec.read).toBe(false);
+    expect(rec.createdAt).toBeTruthy();
+    expect(rec.id).toMatch(/^ntf_/);
   });
 
   it("calls webhook when agent has webhookUrl", async () => {

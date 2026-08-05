@@ -11,6 +11,7 @@ import type {
   QuoteRecord,
   OrderRecord,
   AuditEvent,
+  NotificationRecord,
 } from "./types";
 import type { EscrowRecord } from "./store-types";
 
@@ -118,9 +119,21 @@ CREATE TABLE IF NOT EXISTS audit_events (
   at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id),
+  event TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  read BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS audit_at_idx ON audit_events(at DESC);
 CREATE INDEX IF NOT EXISTS escrows_order_idx ON escrows(order_id);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
+CREATE INDEX IF NOT EXISTS notifications_agent_idx ON notifications(agent_id, created_at DESC);
 `;
 
 // --- Agent CRUD ---
@@ -340,6 +353,57 @@ export async function pgListAudit(limit = 50): Promise<AuditEvent[]> {
     payload: row.payload as Record<string, unknown>,
     at: new Date(row.at as string).toISOString(),
   }));
+}
+
+// --- Notifications ---
+
+export async function pgPutNotification(n: NotificationRecord): Promise<void> {
+  const p = await getPool();
+  await p.query(
+    `INSERT INTO notifications (id, agent_id, event, title, message, data, read, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
+     ON CONFLICT (id) DO UPDATE SET read = EXCLUDED.read`,
+    [
+      n.id,
+      n.agentId,
+      n.event,
+      n.title,
+      n.message,
+      JSON.stringify(n.data || {}),
+      n.read,
+      n.createdAt,
+    ]
+  );
+}
+
+export async function pgListNotifications(
+  agentId: string,
+  limit = 50
+): Promise<NotificationRecord[]> {
+  const p = await getPool();
+  const r = await p.query(
+    `SELECT id, agent_id, event, title, message, data, read, created_at
+     FROM notifications WHERE agent_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [agentId, limit]
+  );
+  return r.rows.map((row) => ({
+    id: row.id as string,
+    agentId: row.agent_id as string,
+    event: row.event as NotificationRecord["event"],
+    title: row.title as string,
+    message: row.message as string,
+    data: row.data as Record<string, unknown>,
+    read: Boolean(row.read),
+    createdAt: new Date(row.created_at as string).toISOString(),
+  }));
+}
+
+export async function pgMarkNotificationsRead(agentId: string): Promise<void> {
+  const p = await getPool();
+  await p.query(
+    `UPDATE notifications SET read = true WHERE agent_id = $1 AND read = false`,
+    [agentId]
+  );
 }
 
 // --- Mappers ---

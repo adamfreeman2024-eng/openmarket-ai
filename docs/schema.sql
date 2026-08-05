@@ -77,6 +77,20 @@ CREATE TABLE IF NOT EXISTS audit_events (
 
 CREATE INDEX IF NOT EXISTS audit_at_idx ON audit_events(at DESC);
 
+-- Agent notification inbox (multi-channel: webhook/telegram/email + durable history)
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL REFERENCES agents(id),
+  event TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  read BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_agent_idx ON notifications(agent_id, created_at DESC);
+
 -- Gold tier audit history (future automated SAST service)
 CREATE TABLE IF NOT EXISTS agent_audits (
   id TEXT PRIMARY KEY,

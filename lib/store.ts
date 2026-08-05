@@ -10,6 +10,7 @@ import type {
   QuoteRecord,
   OrderRecord,
   AuditEvent,
+  NotificationRecord,
 } from "./types";
 import type { EscrowRecord } from "./store-types";
 import {
@@ -41,6 +42,9 @@ export {
   pgMarkTxUsed,
   pgAudit,
   pgListAudit,
+  pgPutNotification,
+  pgListNotifications,
+  pgMarkNotificationsRead,
 } from "./pg-store";
 
 type StoreShape = {
@@ -52,6 +56,7 @@ type StoreShape = {
   usedTx: Set<string>;
   audit: AuditEvent[];
   escrows: Map<string, EscrowRecord>;
+  notifications: Map<string, NotificationRecord>;
 };
 
 type PersistShape = {
@@ -62,6 +67,7 @@ type PersistShape = {
   usedTx: string[];
   audit: AuditEvent[];
   escrows: EscrowRecord[];
+  notifications: NotificationRecord[];
 };
 
 const g = globalThis as unknown as {
@@ -83,6 +89,7 @@ function emptyStore(): StoreShape {
     usedTx: new Set(),
     audit: [],
     escrows: new Map(),
+    notifications: new Map(),
   };
 }
 
@@ -98,6 +105,7 @@ function hydrate(data: PersistShape): StoreShape {
   for (const t of data.usedTx || []) s.usedTx.add(t);
   s.audit = data.audit || [];
   for (const e of data.escrows || []) s.escrows.set(e.id, e);
+  for (const n of data.notifications || []) s.notifications.set(n.id, n);
   return s;
 }
 
@@ -121,6 +129,7 @@ function snapshot(): PersistShape {
     usedTx: Array.from(s.usedTx),
     audit: s.audit.slice(0, 500),
     escrows: Array.from(s.escrows.values()),
+    notifications: Array.from(s.notifications.values()).slice(-200),
   };
 }
 
@@ -196,6 +205,10 @@ async function pgPersistRelational(state: PersistShape): Promise<void> {
     const { pgAudit } = await import("./pg-store");
     await pgAudit(ev);
   }
+  for (const n of state.notifications) {
+    const { pgPutNotification } = await import("./pg-store");
+    await pgPutNotification(n);
+  }
 }
 
 function store(): StoreShape {
@@ -226,7 +239,7 @@ function store(): StoreShape {
 
 /** Load state from relational PG tables (replaces blob load) */
 async function pgLoadFromRelational(): Promise<PersistShape | null> {
-  const { pgListAgents, pgListOffers, pgListOrders, pgListEscrows, pgListAudit } = await import("./pg-store");
+  const { pgListAgents, pgListOffers, pgListOrders, pgListEscrows, pgListAudit, pgListNotifications } = await import("./pg-store");
   const agents = await pgListAgents();
   if (!agents.length) return null;
   const offers = await pgListOffers();
@@ -243,7 +256,14 @@ async function pgLoadFromRelational(): Promise<PersistShape | null> {
   const usedTx: string[] = [];
   const tr = await p.query(`SELECT transaction_id FROM used_tx`);
   for (const row of tr.rows) usedTx.push(row.transaction_id as string);
-  return { agents, offers, quotes, orders, usedTx, audit, escrows };
+  // notifications (last 200)
+  const notifications: NotificationRecord[] = [];
+  for (const agent of agents) {
+    const ns = await pgListNotifications(agent.id, 50);
+    notifications.push(...ns);
+  }
+  notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return { agents, offers, quotes, orders, usedTx, audit, escrows, notifications };
 }
 
 export function newId(prefix: string) {
@@ -373,6 +393,32 @@ export const db = {
   },
   listEscrows() {
     return Array.from(store().escrows.values());
+  },
+  putNotification(n: NotificationRecord) {
+    store().notifications.set(n.id, n);
+    schedulePersist();
+  },
+  listNotifications(agentId: string, limit = 50) {
+    return Array.from(store().notifications.values())
+      .filter((n) => n.agentId === agentId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  },
+  unreadNotifications(agentId: string) {
+    return Array.from(store().notifications.values()).filter(
+      (n) => n.agentId === agentId && !n.read
+    ).length;
+  },
+  markNotificationsRead(agentId: string) {
+    let marked = 0;
+    for (const n of store().notifications.values()) {
+      if (n.agentId === agentId && !n.read) {
+        n.read = true;
+        marked++;
+      }
+    }
+    if (marked > 0) schedulePersist();
+    return marked;
   },
   backend() {
     return hasDatabaseUrl() ? "file+postgres-relational" : "file";
