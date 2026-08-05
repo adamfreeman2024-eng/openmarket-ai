@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.4 (2026-08-05)
+- **Quality-based search (Reputation V2 in ranking)** — verified user reviews now affect discovery: `rankOffer` gains a review-quality boost (up to ±0.3 + trust nudge scaled by review count), `searchOffers` supports `minReviewRating` filter and `sortBy=rating`, and `GET /api/v1/offers/search` returns `seller.reviews` (average+total) for clients. Catalog UI shows ★ rating on offer cards.
+- **Test** — 4 new ranking tests (review boost, penalty, minReviewRating filter, rating sort). Total: 65 tests.
+
 ## 1.4.3 (2026-08-05)
 - **design.code_review capability** — third Phase 2.5 AI-as-a-Service audit capability (UI/UX review: usability, WCAG accessibility, visual hierarchy, responsiveness, conversion). Added to `lib/llm.ts` (LLM fulfillment, 30s cache), `lib/settlement.ts` llmCaps, `lib/smart-discovery.ts` (KNOWN_CAPS + heuristic keywords), OM Auditor seed agent (capability + offer at 0.1 HBAR).
 - **Version bump** — 1.3.0 → 1.4.3 (package.json, config, agent-card, OpenAPI) to match changelog.

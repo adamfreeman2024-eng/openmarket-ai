@@ -3,12 +3,22 @@ import { PLATFORM_FEE_BPS } from "./config";
 import type { EscrowRecord } from "./store-types";
 import { computeReputation } from "./reputation";
 
+/** Review quality signal — average 1..5 + verified review count. */
+export type ReviewQuality = { average: number; total: number };
+
 /** Agent-oriented ranking — higher is better.
- *  Now includes reputation boost from badges. */
+ *  Now includes reputation boost from badges + verified review quality (V2). */
 export function rankOffer(
   offer: OfferRecord,
   seller: AgentRecord | undefined,
-  opts?: { maxPrice?: number; capability?: string; escrows?: EscrowRecord[]; orderCount?: number; text?: string }
+  opts?: {
+    maxPrice?: number;
+    capability?: string;
+    escrows?: EscrowRecord[];
+    orderCount?: number;
+    text?: string;
+    reviews?: ReviewQuality;
+  }
 ): number {
   const sales = seller?.stats.sales ?? 0;
   const success = seller?.stats.success ?? 0;
@@ -56,6 +66,17 @@ export function rankOffer(
     score *= 1 + rep.rankingBoost / 100;
   }
 
+  // Verified review quality boost (Reputation V2) — quality-based discovery.
+  // A 5.0★ seller with ≥5 verified reviews ranks above an equal-priced unknown.
+  // Weight: up to +0.3 for excellent reviews; negative reviews penalize.
+  if (opts?.reviews && opts.reviews.total > 0) {
+    const confidence = Math.min(opts.reviews.total / 5, 1); // 5+ reviews = full weight
+    const quality = ((opts.reviews.average - 3) / 2) * 0.3 * confidence; // -0.3..+0.3
+    score += quality;
+    // Small trust nudge for having any verified reviews at all
+    score += 0.05 * confidence;
+  }
+
   return score;
 }
 
@@ -72,8 +93,10 @@ export function searchOffers(
     ordersByAgent?: Map<string, number>;
     tags?: string[];
     category?: string;
-    sortBy?: "relevance" | "price_low" | "price_high" | "reputation" | "speed";
+    sortBy?: "relevance" | "price_low" | "price_high" | "reputation" | "speed" | "rating";
     minRating?: number;
+    minReviewRating?: number;
+    reviewStats?: Map<string, ReviewQuality>;
   }
 ) {
   const text = (q.q || "").toLowerCase().trim();
@@ -122,6 +145,15 @@ export function searchOffers(
     });
   }
 
+  // Min review rating filter — verified user-review average (1..5), e.g. 4.0
+  if (q.minReviewRating != null && q.minReviewRating > 0) {
+    list = list.filter((o) => {
+      const rev = q.reviewStats?.get(o.agentId);
+      if (!rev || rev.total === 0) return true; // unreviewed sellers pass (mild prior)
+      return rev.average >= q.minReviewRating!;
+    });
+  }
+
   const scored = list
     .map((o) => {
       const seller = agents.get(o.agentId);
@@ -134,6 +166,7 @@ export function searchOffers(
           escrows: q.escrows,
           orderCount,
           text: text || undefined,
+          reviews: q.reviewStats?.get(o.agentId),
         }),
         seller,
       };
@@ -150,6 +183,18 @@ export function searchOffers(
       const aRep = a.seller ? a.seller.stats.success : 0;
       const bRep = b.seller ? b.seller.stats.success : 0;
       return bRep - aRep;
+    });
+  } else if (sortBy === "rating") {
+    // Verified review average (V2) — highest quality first; unreviewed at bottom.
+    scored.sort((a, b) => {
+      const aRev = q.reviewStats?.get(a.offer.agentId);
+      const bRev = q.reviewStats?.get(b.offer.agentId);
+      const aAvg = aRev && aRev.total > 0 ? aRev.average : -1;
+      const bAvg = bRev && bRev.total > 0 ? bRev.average : -1;
+      if (bAvg !== aAvg) return bAvg - aAvg;
+      const aCount = aRev?.total ?? 0;
+      const bCount = bRev?.total ?? 0;
+      return bCount - aCount;
     });
   } else if (sortBy === "speed") {
     scored.sort((a, b) => {

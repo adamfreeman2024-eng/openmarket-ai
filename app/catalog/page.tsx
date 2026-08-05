@@ -14,15 +14,21 @@ export default async function CatalogPage({
 }) {
   const { ensureSeedCatalog, db } = await import("@/lib/store");
   const { searchOffers } = await import("@/lib/ranking");
+  const { getReviewStats } = await import("@/lib/reputation-v2");
   ensureSeedCatalog();
   const { capability } = await searchParams;
   const agentMap = new Map(db.listAgents().map((a) => [a.id, a]));
   const allOffers = db.listOffers();
+  const reviewStats = new Map<string, { average: number; total: number }>();
+  for (const a of db.listAgents()) {
+    const s = getReviewStats(a.id);
+    if (s.total > 0) reviewStats.set(a.id, { average: s.average, total: s.total });
+  }
   const results = searchOffers(
     capability ? allOffers.filter((o) => o.capability === capability) : allOffers,
     agentMap,
-    { limit: 50 }
-  );
+    { limit: 50, reviewStats }
+  ).map((r) => ({ ...r, seller: r.seller ? { ...r.seller, reviews: reviewStats.get(r.offer.agentId) || null } : null }));
   const card = marketCard();
 
   const capabilities = [...new Set(allOffers.map((o) => o.capability))].sort();
@@ -111,6 +117,7 @@ export default async function CatalogPage({
           const successRate = total === 0 ? 0.8 : success / total;
           const tier = r.seller?.verificationStatus || "bronze";
           const gh = r.seller?.githubHandle;
+          const reviews = r.seller?.reviews;
           return (
             <div key={r.offer.id} className="offer">
               <div className="offer-top">
@@ -144,6 +151,14 @@ export default async function CatalogPage({
                         @{gh}
                       </a>
                     </>
+                  ) : null}
+                  {reviews && reviews.total > 0 ? (
+                    <span style={{ color: "#fbbf24" }}>
+                      {" · "}
+                      {"★".repeat(Math.round(reviews.average))}
+                      {"☆".repeat(5 - Math.round(reviews.average))}{" "}
+                      {reviews.average.toFixed(1)} ({reviews.total})
+                    </span>
                   ) : null}
                   {" · success "}
                   {(successRate * 100).toFixed(0)}% · sales {sales}

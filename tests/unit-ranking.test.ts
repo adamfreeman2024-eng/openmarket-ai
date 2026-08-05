@@ -151,4 +151,64 @@ describe("searchOffers", () => {
     // veteran still wins on reputation, but cold-start nudge must exist (no crash, deterministic)
     expect(res.length).toBe(2);
   });
+
+  it("reviews: 5★ seller with verified reviews ranks above unreviewed equal-price seller", () => {
+    const agentMap = new Map<string, any>([
+      ["revA", makeAgent("revA")],
+      ["revB", makeAgent("revB")],
+    ]);
+    const a = makeOffer({ id: "revA-offer", agentId: "revA", priceAmount: 1 });
+    const b = makeOffer({ id: "revB-offer", agentId: "revB", priceAmount: 1 });
+    const reviewStats = new Map([
+      ["revA", { average: 5, total: 8 }],
+    ]);
+    const res = searchOffers([b, a], agentMap, { reviewStats });
+    expect(res[0].offer.id).toBe("revA-offer");
+  });
+
+  it("reviews: poor-rated seller ranks below unreviewed equal-price seller", () => {
+    const agentMap = new Map<string, any>([
+      ["revC", makeAgent("revC")],
+      ["revD", makeAgent("revD")],
+    ]);
+    const c = makeOffer({ id: "revC-offer", agentId: "revC", priceAmount: 1 });
+    const d = makeOffer({ id: "revD-offer", agentId: "revD", priceAmount: 1 });
+    const reviewStats = new Map([
+      ["revC", { average: 1, total: 6 }],
+    ]);
+    const res = searchOffers([c, d], agentMap, { reviewStats });
+    expect(res[0].offer.id).toBe("revD-offer");
+  });
+
+  it("filters by minReviewRating (verified review average)", () => {
+    const agentMap = new Map<string, any>([
+      ["rA", makeAgent("rA")],
+      ["rB", makeAgent("rB")],
+    ]);
+    const a = makeOffer({ id: "rA-offer", agentId: "rA", priceAmount: 1 });
+    const b = makeOffer({ id: "rB-offer", agentId: "rB", priceAmount: 1 });
+    const reviewStats = new Map([
+      ["rA", { average: 4.5, total: 3 }],
+      ["rB", { average: 2, total: 4 }],
+    ]);
+    const res = searchOffers([a, b], agentMap, { reviewStats, minReviewRating: 4 });
+    expect(res.map((r) => r.offer.id)).toEqual(["rA-offer"]);
+  });
+
+  it("sorts by rating — highest review average first, unreviewed last", () => {
+    const agentMap = new Map<string, any>([
+      ["sA", makeAgent("sA")],
+      ["sB", makeAgent("sB")],
+      ["sC", makeAgent("sC")],
+    ]);
+    const a = makeOffer({ id: "sA-offer", agentId: "sA", priceAmount: 1 });
+    const b = makeOffer({ id: "sB-offer", agentId: "sB", priceAmount: 1 });
+    const c = makeOffer({ id: "sC-offer", agentId: "sC", priceAmount: 1 });
+    const reviewStats = new Map([
+      ["sA", { average: 4.8, total: 10 }],
+      ["sB", { average: 3, total: 2 }],
+    ]);
+    const res = searchOffers([c, b, a], agentMap, { reviewStats, sortBy: "rating" });
+    expect(res.map((r) => r.offer.id)).toEqual(["sA-offer", "sB-offer", "sC-offer"]);
+  });
 });

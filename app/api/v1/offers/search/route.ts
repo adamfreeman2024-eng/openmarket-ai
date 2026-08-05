@@ -3,6 +3,7 @@ import { db, ensureSeedCatalog } from "@/lib/store";
 import { searchOffers } from "@/lib/ranking";
 import { json, options } from "@/lib/http";
 import { reputationForApi } from "@/lib/reputation";
+import { getReviewStats } from "@/lib/reputation-v2";
 import { publicOffer } from "@/lib/public-dto";
 
 export const runtime = "nodejs";
@@ -12,7 +13,7 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit=&tags=&category=&sortBy= */
+/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit=&tags=&category=&sortBy=&minRating=&minReviewRating= */
 export async function GET(req: NextRequest) {
   ensureSeedCatalog();
   const sp = req.nextUrl.searchParams;
@@ -31,6 +32,13 @@ export async function GET(req: NextRequest) {
   const tagsParam = sp.get("tags");
   const tags = tagsParam ? tagsParam.split(",").map(t => t.trim()).filter(Boolean) : undefined;
 
+  // Review quality per seller agent (Reputation V2) — verified reviews only.
+  const reviewStats = new Map<string, { average: number; total: number }>();
+  for (const a of db.listAgents()) {
+    const s = getReviewStats(a.id);
+    if (s.total > 0) reviewStats.set(a.id, { average: s.average, total: s.total });
+  }
+
   const results = searchOffers(db.listOffers(), agents, {
     q: sp.get("q") || undefined,
     capability: sp.get("capability") || undefined,
@@ -41,8 +49,10 @@ export async function GET(req: NextRequest) {
     ordersByAgent,
     tags,
     category: sp.get("category") || undefined,
-    sortBy: (sp.get("sortBy") as "relevance" | "price_low" | "price_high" | "reputation" | "speed") || undefined,
+    sortBy: (sp.get("sortBy") as "relevance" | "price_low" | "price_high" | "reputation" | "speed" | "rating") || undefined,
     minRating: sp.get("minRating") ? Number(sp.get("minRating")) : undefined,
+    minReviewRating: sp.get("minReviewRating") ? Number(sp.get("minReviewRating")) : undefined,
+    reviewStats,
   });
 
   return json({
@@ -68,6 +78,7 @@ export async function GET(req: NextRequest) {
                   : r.seller.stats.success /
                     (r.seller.stats.success + r.seller.stats.fail),
               reputation: rep,
+              reviews: reviewStats.get(r.offer.agentId) || null,
             }
           : null,
       };
