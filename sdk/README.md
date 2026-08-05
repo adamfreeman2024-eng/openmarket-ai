@@ -17,3 +17,18 @@ const buy = await om.buyOneShot({
 ```
 
 Full helpers live in `lib/agent-client.ts` (same API).
+
+## Language SDKs
+
+| SDK | Location | Notes |
+|-----|----------|-------|
+| TypeScript | `sdk/ts` | `@openmarket/sdk` — full surface incl. wallet auto-pay |
+| Go | `sdk/go` | `github.com/adamfreeman2024-eng/openmarket-ai/sdk/go` — Go 1.22+, register/search/buy/escrow/economy/notifications |
+| Python | `sdk/python` | `openmarket-py` |
+| MCP server | `sdk/mcp-server` | Model Context Protocol tools |
+| AutoGen | `sdk/autogen` | `openmarket_autogen` |
+| CrewAI | `sdk/crewai` | `openmarket_crewai` |
+| LangChain | `sdk/langchain` | tools |
+| LlamaIndex | `sdk/llamaindex` | FunctionTools |
+| Vercel AI SDK | `sdk/ai-sdk` | tools for `ai` v4+ |
+| CLI | `sdk/cli` | `abaz` — register/search/buy/offer/orders/escrows |

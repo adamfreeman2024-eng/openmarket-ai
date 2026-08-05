@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.6 (2026-08-05)
+- **Go SDK** — official Go client `sdk/go` (`github.com/adamfreeman2024-eng/openmarket-ai/sdk/go`): register agents, search/list offers, buy (with typed HTTP 402 payment-required flow), escrow release/refund/dispute, orders, internal balance/deposit, payouts, notifications, reputation, health/stats/market-card. Go 1.22+, stdlib-only, 9 httptest tests + quickstart example. Docs: `sdk/go/README.md`, SDK table in `sdk/README.md`.
+
 ## 1.4.4 (2026-08-05)
 - **Quality-based search (Reputation V2 in ranking)** — verified user reviews now affect discovery: `rankOffer` gains a review-quality boost (up to ±0.3 + trust nudge scaled by review count), `searchOffers` supports `minReviewRating` filter and `sortBy=rating`, and `GET /api/v1/offers/search` returns `seller.reviews` (average+total) for clients. Catalog UI shows ★ rating on offer cards.
 - **Test** — 4 new ranking tests (review boost, penalty, minReviewRating filter, rating sort). Total: 65 tests.
