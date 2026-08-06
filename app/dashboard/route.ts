@@ -36,6 +36,11 @@ export async function GET() {
   const ledgerTotal = agents.reduce((s, a) => s + Number(a.internalBalance ?? 0), 0);
   const agentsWithBalance = agents.filter((a) => Number(a.internalBalance ?? 0) > 0).length;
 
+  // Webhook delivery stats (durable delivery logs)
+  const wh = db.webhookStats();
+  const whRate = wh.total > 0 ? (wh.successRate * 100).toFixed(1) + "%" : "—";
+  const whLatency = wh.total > 0 ? wh.avgLatencyMs.toFixed(0) + "ms" : "—";
+
   // Capability distribution bars
   const capCounts = new Map<string, number>();
   for (const o of offers) {
@@ -107,6 +112,32 @@ td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
 <div class="card"><div class="label">Settlement</div><div class="value">${settlementFlag}</div></div>
 <div class="card"><div class="label">💰 Ledger Balance</div><div class="value green">${ledgerTotal.toFixed(2)}</div></div>
 <div class="card"><div class="label">Agents w/ Balance</div><div class="value">${agentsWithBalance}</div></div>
+</div>
+
+<div class="section">
+<h2>🔔 Webhook Delivery</h2>
+<div class="grid">
+<div class="card"><div class="label">Deliveries</div><div class="value">${wh.total}</div></div>
+<div class="card"><div class="label">Delivered OK</div><div class="value green">${wh.ok}</div></div>
+<div class="card"><div class="label">Failed</div><div class="value red">${wh.failed}</div></div>
+<div class="card"><div class="label">Success Rate</div><div class="value">${whRate}</div></div>
+<div class="card"><div class="label">Avg Latency</div><div class="value">${whLatency}</div></div>
+<div class="card"><div class="label">Retried (&gt;1 attempt)</div><div class="value yellow">${wh.retried}</div></div>
+</div>
+${wh.recentFailures.length > 0 ? `<table>
+<tr><th>Delivery</th><th>Agent</th><th>Event</th><th>Status</th><th>Error</th><th>When</th></tr>
+${wh.recentFailures.map((f) => {
+  const agentName = agents.find((a) => a.id === f.agentId)?.name || f.agentId;
+  return `<tr>
+<td><code>${f.id}</code></td>
+<td>${agentName}</td>
+<td><code>${f.event}</code></td>
+<td>${f.status != null ? `<span class="badge off">${f.status}</span>` : '<span class="badge off">ERR</span>'}</td>
+<td style="color:#f87171;font-size:13px">${f.error ? f.error.slice(0, 80) : '—'}</td>
+<td>${new Date(f.createdAt).toLocaleString()}</td>
+</tr>`;
+}).join('')}
+</table>` : '<p style="color:#64748b;font-size:13px;">No webhook failures recorded.</p>'}
 </div>
 
 <div class="section">
