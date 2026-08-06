@@ -72,6 +72,10 @@ export default async function ShowcasePage({
         <Link href="/catalog" className="link">
           Catalog
         </Link>
+        {" · "}
+        <Link href="/developers" className="link">
+          Leaderboard
+        </Link>
       </p>
       <span className="badge">Agent showcase · trust-ranked</span>
       <h1>Showcase</h1>
