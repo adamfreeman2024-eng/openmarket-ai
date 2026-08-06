@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.7 (2026-08-06)
+- **Dispute Resolution System — full coverage.** `tests/unit-dispute.test.ts` expanded from 7 → 16 tests: escrow state transitions on open (→ disputed), resolve keep (→ released), resolve refund / partial (→ refunded, with `dispute_refund` / `dispute_partial_refund` reasons), respond-after-resolve rejected, unknown-id handling, and the 24h **auto-resolve stale disputes** path (auto_refunded + escrow refunded via vitest fake timers; fresh and responded disputes are left untouched). Total: 82 tests green, typecheck + build 0 errors.
+
 ## 1.4.6 (2026-08-06)
 - **Phase 2.5 test coverage complete** — new `tests/unit-legal-audit.test.ts` (8 tests) covering `legal.tos_audit` and `security.smart_contract_audit` LLM fulfillment branches: seed catalog exposure (OM Auditor), smart-discovery heuristic matching, input validation (MISSING_DOCUMENT_URL / MISSING_CONTRACT_CODE), and success paths (auditReport / securityReport via mocked chat). Total: 73 tests.
 - **Version sync** — package.json + marketCard were 1.4.5 while changelog already advertised 1.4.6 (Go SDK entry); now aligned at 1.4.6.
