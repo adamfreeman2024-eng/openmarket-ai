@@ -17,6 +17,8 @@ cache/
 artifacts/
 typechain-types/
 sdk/python/**/__pycache__/
+__pycache__/
+*.pyc
 sdk/python/**/*.pyc
 sdk/*/node_modules/
 backups/
