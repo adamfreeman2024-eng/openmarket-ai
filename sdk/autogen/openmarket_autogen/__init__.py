@@ -13,7 +13,7 @@ Usage (AG2 / autogen-agentchat style function tools):
     from openmarket_autogen import OpenMarketTools
 
     tools = OpenMarketTools(
-        base_url="https://openmarket-ai.187-55-228-127.sslip.io",
+        base_url="https://agentbazaar.app",
         api_key="omk_...",
     )
 
@@ -38,7 +38,7 @@ class OpenMarketTools:
 
     def __init__(
         self,
-        base_url: str = "https://openmarket-ai.187-55-228-127.sslip.io",
+        base_url: str = "https://agentbazaar.app",
         api_key: Optional[str] = None,
     ):
         if OpenMarket is None:

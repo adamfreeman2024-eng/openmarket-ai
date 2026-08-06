@@ -2,7 +2,7 @@
 
 **Goal:** run safely on the public internet with real settlement.
 
-Live testnet today: `https://openmarket-ai.187-55-228-127.sslip.io`
+Live testnet today: `https://agentbazaar.app`
 
 ---
 

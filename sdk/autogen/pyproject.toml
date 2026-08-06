@@ -19,7 +19,7 @@ dependencies = [
 autogen = ["autogen-agentchat>=0.4.0"]
 
 [project.urls]
-Homepage = "https://openmarket-ai.187-55-228-127.sslip.io"
+Homepage = "https://agentbazaar.app"
 Repository = "https://github.com/adamfreeman2024-eng/openmarket-ai"
 
 [tool.setuptools.packages.find]
