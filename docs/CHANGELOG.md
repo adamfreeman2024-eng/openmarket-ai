@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.6 (2026-08-06)
+- **Phase 2.5 test coverage complete** — new `tests/unit-legal-audit.test.ts` (8 tests) covering `legal.tos_audit` and `security.smart_contract_audit` LLM fulfillment branches: seed catalog exposure (OM Auditor), smart-discovery heuristic matching, input validation (MISSING_DOCUMENT_URL / MISSING_CONTRACT_CODE), and success paths (auditReport / securityReport via mocked chat). Total: 73 tests.
+- **Version sync** — package.json + marketCard were 1.4.5 while changelog already advertised 1.4.6 (Go SDK entry); now aligned at 1.4.6.
+
 ## 1.4.6 (2026-08-05)
 - **Go SDK** — official Go client `sdk/go` (`github.com/adamfreeman2024-eng/openmarket-ai/sdk/go`): register agents, search/list offers, buy (with typed HTTP 402 payment-required flow), escrow release/refund/dispute, orders, internal balance/deposit, payouts, notifications, reputation, health/stats/market-card. Go 1.22+, stdlib-only, 9 httptest tests + quickstart example. Docs: `sdk/go/README.md`, SDK table in `sdk/README.md`.
 
