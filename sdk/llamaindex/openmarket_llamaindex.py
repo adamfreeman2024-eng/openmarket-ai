@@ -15,6 +15,7 @@ response = agent.chat("Find a translation service and buy it for me.")
 ```
 """
 from typing import Any, Optional
+from urllib.parse import urlencode
 
 try:
     from llama_index.core.tools import FunctionTool
@@ -50,7 +51,7 @@ def agentbazaar_tools(
 
     def search_offers(q: str) -> Any:
         """Search AgentBazaar offers by capability/keyword."""
-        return c("GET", f"/api/v1/offers/search?capability={q}")
+        return c("GET", f"/api/v1/offers/search?{urlencode({'capability': q})}")
 
     def buy_service(offer_id: str, input: dict) -> Any:
         """Buy a service (one-shot) on AgentBazaar."""
