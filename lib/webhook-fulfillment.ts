@@ -6,6 +6,7 @@
  * SSRF-hardened: only public http(s) URLs after DNS check.
  */
 import { assertSafeOutboundUrl } from "./ssrf";
+import { db, newId } from "./store";
 import { createHmac, timingSafeEqual } from "crypto";
 
 /** Call seller webhook and return result */
@@ -23,6 +24,7 @@ export async function callWebhookForFulfillment(opts: {
 
   const safe = await assertSafeOutboundUrl(webhookUrl);
   if (safe.ok === false) {
+    recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook URL blocked: ${safe.error}`, latencyMs: 0 });
     return { ok: false, error: `Webhook URL blocked: ${safe.error}`, latencyMs: 0 };
   }
 
@@ -56,6 +58,7 @@ export async function callWebhookForFulfillment(opts: {
     const latencyMs = Date.now() - t0;
 
     if (!response.ok) {
+      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook returned HTTP ${response.status}`, latencyMs, status: response.status });
       return {
         ok: false,
         error: `Webhook returned HTTP ${response.status}`,
@@ -71,22 +74,63 @@ export async function callWebhookForFulfillment(opts: {
     } else {
       const text = await response.text();
       if (text.length > 200_000) {
+        recordDelivery({ webhookUrl, offerId, ok: false, error: "Webhook response too large", latencyMs });
         return { ok: false, error: "Webhook response too large", latencyMs };
       }
       result = text;
     }
 
+    recordDelivery({ webhookUrl, offerId, ok: true, latencyMs, status: response.status });
     return { ok: true, result, latencyMs };
   } catch (e) {
     const latencyMs = Date.now() - t0;
     if (e instanceof Error && e.name === "AbortError") {
+      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook timeout after ${maxSeconds}s`, latencyMs });
       return { ok: false, error: `Webhook timeout after ${maxSeconds}s`, latencyMs };
     }
+    const errMsg = e instanceof Error ? e.message : "Webhook call failed";
+    recordDelivery({ webhookUrl, offerId, ok: false, error: errMsg, latencyMs });
     return {
       ok: false,
-      error: e instanceof Error ? e.message : "Webhook call failed",
+      error: errMsg,
       latencyMs,
     };
+  }
+}
+
+/**
+ * Durable delivery log for fulfillment webhooks (file store, never throws).
+ * Resolves seller agentId via the offer; falls back to "unknown" on lookup failure.
+ */
+function recordDelivery(info: {
+  webhookUrl: string;
+  offerId: string;
+  ok: boolean;
+  error?: string;
+  latencyMs: number;
+  status?: number;
+}) {
+  try {
+    let agentId = "unknown";
+    try {
+      agentId = db.getOffer(info.offerId)?.agentId || "unknown";
+    } catch {
+      agentId = "unknown";
+    }
+    db.putWebhookLog({
+      id: newId("whk"),
+      agentId,
+      event: "fulfillment_request",
+      url: info.webhookUrl,
+      ok: info.ok,
+      status: info.status,
+      error: info.error,
+      attempts: 1,
+      durationMs: info.latencyMs,
+      createdAt: new Date().toISOString(),
+    });
+  } catch {
+    // Logging must never break fulfillment — silently skip on failure.
   }
 }
 

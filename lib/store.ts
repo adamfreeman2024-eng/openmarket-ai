@@ -11,6 +11,7 @@ import type {
   OrderRecord,
   AuditEvent,
   NotificationRecord,
+  WebhookDeliveryLog,
 } from "./types";
 import type { EscrowRecord } from "./store-types";
 import {
@@ -57,6 +58,7 @@ type StoreShape = {
   audit: AuditEvent[];
   escrows: Map<string, EscrowRecord>;
   notifications: Map<string, NotificationRecord>;
+  webhookLogs: Map<string, WebhookDeliveryLog>;
 };
 
 type PersistShape = {
@@ -68,6 +70,7 @@ type PersistShape = {
   audit: AuditEvent[];
   escrows: EscrowRecord[];
   notifications: NotificationRecord[];
+  webhookLogs: WebhookDeliveryLog[];
 };
 
 const g = globalThis as unknown as {
@@ -90,6 +93,7 @@ function emptyStore(): StoreShape {
     audit: [],
     escrows: new Map(),
     notifications: new Map(),
+    webhookLogs: new Map(),
   };
 }
 
@@ -106,6 +110,7 @@ function hydrate(data: PersistShape): StoreShape {
   s.audit = data.audit || [];
   for (const e of data.escrows || []) s.escrows.set(e.id, e);
   for (const n of data.notifications || []) s.notifications.set(n.id, n);
+  for (const w of data.webhookLogs || []) s.webhookLogs.set(w.id, w);
   return s;
 }
 
@@ -130,6 +135,7 @@ function snapshot(): PersistShape {
     audit: s.audit.slice(0, 500),
     escrows: Array.from(s.escrows.values()),
     notifications: Array.from(s.notifications.values()).slice(-200),
+    webhookLogs: Array.from(s.webhookLogs.values()).slice(-200),
   };
 }
 
@@ -209,6 +215,10 @@ async function pgPersistRelational(state: PersistShape): Promise<void> {
     const { pgPutNotification } = await import("./pg-store");
     await pgPutNotification(n);
   }
+  for (const w of state.webhookLogs) {
+    const { pgPutWebhookLog } = await import("./pg-store");
+    await pgPutWebhookLog(w);
+  }
 }
 
 function store(): StoreShape {
@@ -263,7 +273,10 @@ async function pgLoadFromRelational(): Promise<PersistShape | null> {
     notifications.push(...ns);
   }
   notifications.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return { agents, offers, quotes, orders, usedTx, audit, escrows, notifications };
+  // webhook delivery logs (last 200)
+  const { pgListWebhookLogs } = await import("./pg-store");
+  const webhookLogs = await pgListWebhookLogs(200);
+  return { agents, offers, quotes, orders, usedTx, audit, escrows, notifications, webhookLogs };
 }
 
 export function newId(prefix: string) {
@@ -419,6 +432,51 @@ export const db = {
     }
     if (marked > 0) schedulePersist();
     return marked;
+  },
+  putWebhookLog(w: WebhookDeliveryLog) {
+    store().webhookLogs.set(w.id, w);
+    schedulePersist();
+  },
+  listWebhookLogs(opts?: { agentId?: string; limit?: number }) {
+    const limit = Math.max(1, Math.min(opts?.limit ?? 50, 200));
+    let logs = Array.from(store().webhookLogs.values());
+    if (opts?.agentId) logs = logs.filter((w) => w.agentId === opts.agentId);
+    return logs
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  },
+  webhookStats() {
+    const logs = Array.from(store().webhookLogs.values());
+    const total = logs.length;
+    const ok = logs.filter((w) => w.ok).length;
+    const failed = total - ok;
+    const avgLatencyMs =
+      total > 0
+        ? logs.reduce((sum, w) => sum + (w.durationMs || 0), 0) / total
+        : 0;
+    // Retry visibility: deliveries that needed >1 attempt
+    const retried = logs.filter((w) => w.attempts > 1).length;
+    return {
+      total,
+      ok,
+      failed,
+      successRate: total > 0 ? ok / total : 0,
+      avgLatencyMs,
+      retried,
+      recentFailures: logs
+        .filter((w) => !w.ok)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, 10)
+        .map((w) => ({
+          id: w.id,
+          agentId: w.agentId,
+          event: w.event,
+          url: w.url,
+          status: w.status ?? null,
+          error: w.error ?? null,
+          createdAt: w.createdAt,
+        })),
+    };
   },
   backend() {
     return hasDatabaseUrl() ? "file+postgres-relational" : "file";

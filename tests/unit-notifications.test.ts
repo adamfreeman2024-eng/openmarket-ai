@@ -9,6 +9,7 @@ vi.mock("@/lib/store", () => ({
   db: {
     getAgent: vi.fn(),
     putNotification: vi.fn(),
+    putWebhookLog: vi.fn(),
   },
   newId: vi.fn((prefix: string) => `${prefix}_test`),
 }));
@@ -60,6 +61,14 @@ describe("notify formatting", () => {
       await notify.agent("agt_2", "order_completed", { orderId: "ord_2" });
       expect(fetches.length).toBeGreaterThan(0);
       expect(fetches[0]).toContain("https://example.com/hook");
+      // durable delivery log recorded for the webhook attempt
+      const { db } = await import("@/lib/store");
+      expect(db.putWebhookLog).toHaveBeenCalledTimes(1);
+      const rec = (db.putWebhookLog as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(rec.agentId).toBe("agt_2");
+      expect(rec.event).toBe("order_completed");
+      expect(rec.ok).toBe(true);
+      expect(rec.attempts).toBe(1);
     } finally {
       globalThis.fetch = origFetch;
     }

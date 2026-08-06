@@ -36,6 +36,22 @@ export type PlatformAnalytics = {
   topAgents: { agentId: string; name: string; orders: number; volume: number; successRate: number }[];
   ordersByDay: { date: string; count: number; volume: number }[];
   recentActivity: { type: string; description: string; timestamp: string }[];
+  webhookStats: {
+    total: number;
+    ok: number;
+    failed: number;
+    successRate: number;
+    avgLatencyMs: number;
+    retried: number;
+    recentFailures: {
+      id: string;
+      agentId: string;
+      event: string;
+      status: number | null;
+      error: string | null;
+      createdAt: string;
+    }[];
+  };
 };
 
 export async function getPlatformAnalytics(): Promise<PlatformAnalytics> {
@@ -180,6 +196,14 @@ export async function getPlatformAnalytics(): Promise<PlatformAnalytics> {
     topAgents,
     ordersByDay,
     recentActivity,
+    webhookStats: (() => {
+      const ws = db.webhookStats();
+      // Never leak webhook URLs via the public analytics endpoint (security audit).
+      return {
+        ...ws,
+        recentFailures: ws.recentFailures.map(({ url: _url, ...rest }) => rest),
+      };
+    })(),
   };
 
   // Cache for 30 seconds

@@ -13,7 +13,7 @@
 
 import { db } from "./store";
 import { log } from "./logger";
-import type { NotificationRecord } from "./types";
+import type { NotificationRecord, WebhookDeliveryLog } from "./types";
 import { newId } from "./store";
 
 export type NotificationEvent = NotificationRecord["event"];
@@ -76,7 +76,8 @@ async function sendEmail(
 async function sendWebhook(
   webhookUrl: string,
   payload: Record<string, unknown>
-): Promise<boolean> {
+): Promise<{ ok: boolean; status?: number; error?: string; durationMs: number }> {
+  const t0 = Date.now();
   try {
     const resp = await fetch(webhookUrl, {
       method: "POST",
@@ -84,9 +85,13 @@ async function sendWebhook(
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
-    return resp.ok;
-  } catch {
-    return false;
+    return { ok: resp.ok, status: resp.status, durationMs: Date.now() - t0 };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+      durationMs: Date.now() - t0,
+    };
   }
 }
 
@@ -125,15 +130,36 @@ export const notify = {
     }
 
     // Send via available channels
-    const promises: Promise<boolean>[] = [];
+    const promises: Promise<unknown>[] = [];
 
-    // Webhook (if configured)
+    // Webhook (if configured) — record durable delivery log (retry-aware, never throws)
     if (agent.webhookUrl) {
       promises.push(
         sendWebhook(agent.webhookUrl, {
           event,
           agentId,
           ...data,
+        }).then(async (res) => {
+          try {
+            const logRecord: WebhookDeliveryLog = {
+              id: newId("whk"),
+              agentId,
+              event,
+              url: agent.webhookUrl as string,
+              ok: res.ok,
+              status: res.status,
+              error: res.error,
+              attempts: 1,
+              durationMs: res.durationMs,
+              createdAt: new Date().toISOString(),
+            };
+            db.putWebhookLog(logRecord);
+          } catch (e) {
+            log.warn(
+              { err: e instanceof Error ? e.message : String(e) },
+              "Webhook delivery log persist failed (skipped)"
+            );
+          }
         })
       );
     }

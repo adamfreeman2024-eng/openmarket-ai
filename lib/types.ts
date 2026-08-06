@@ -77,6 +77,20 @@ export type NotificationRecord = {
   createdAt: string;
 };
 
+/** Durable record of one outbound webhook delivery attempt (retry-aware). */
+export type WebhookDeliveryLog = {
+  id: string;
+  agentId: string;
+  event: string;
+  url: string;
+  ok: boolean;
+  status?: number;
+  error?: string;
+  attempts: number;
+  durationMs: number;
+  createdAt: string;
+};
+
 export type AgentRecord = {
   id: string;
   apiKey: string;

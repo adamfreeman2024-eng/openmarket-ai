@@ -12,6 +12,7 @@ import type {
   OrderRecord,
   AuditEvent,
   NotificationRecord,
+  WebhookDeliveryLog,
 } from "./types";
 import type { EscrowRecord } from "./store-types";
 
@@ -130,10 +131,24 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS webhook_logs (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  event TEXT NOT NULL,
+  url TEXT NOT NULL,
+  ok BOOLEAN NOT NULL,
+  status INT,
+  error TEXT,
+  attempts INT NOT NULL DEFAULT 1,
+  duration_ms INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS audit_at_idx ON audit_events(at DESC);
 CREATE INDEX IF NOT EXISTS escrows_order_idx ON escrows(order_id);
 CREATE INDEX IF NOT EXISTS orders_status_idx ON orders(status);
 CREATE INDEX IF NOT EXISTS notifications_agent_idx ON notifications(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS webhook_logs_agent_idx ON webhook_logs(agent_id, created_at DESC);
 `;
 
 // --- Agent CRUD ---
@@ -404,6 +419,55 @@ export async function pgMarkNotificationsRead(agentId: string): Promise<void> {
     `UPDATE notifications SET read = true WHERE agent_id = $1 AND read = false`,
     [agentId]
   );
+}
+
+// --- Webhook delivery logs ---
+
+export async function pgPutWebhookLog(w: WebhookDeliveryLog): Promise<void> {
+  const p = await getPool();
+  await p.query(
+    `INSERT INTO webhook_logs (id, agent_id, event, url, ok, status, error, attempts, duration_ms, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     ON CONFLICT (id) DO UPDATE SET
+       ok = EXCLUDED.ok,
+       status = EXCLUDED.status,
+       error = EXCLUDED.error,
+       attempts = EXCLUDED.attempts,
+       duration_ms = EXCLUDED.duration_ms`,
+    [
+      w.id,
+      w.agentId,
+      w.event,
+      w.url,
+      w.ok,
+      w.status ?? null,
+      w.error ?? null,
+      w.attempts,
+      w.durationMs,
+      w.createdAt,
+    ]
+  );
+}
+
+export async function pgListWebhookLogs(limit = 200): Promise<WebhookDeliveryLog[]> {
+  const p = await getPool();
+  const r = await p.query(
+    `SELECT id, agent_id, event, url, ok, status, error, attempts, duration_ms, created_at
+     FROM webhook_logs ORDER BY created_at DESC LIMIT $1`,
+    [limit]
+  );
+  return r.rows.map((row) => ({
+    id: row.id as string,
+    agentId: row.agent_id as string,
+    event: row.event as string,
+    url: row.url as string,
+    ok: Boolean(row.ok),
+    status: row.status != null ? Number(row.status) : undefined,
+    error: (row.error as string | null) ?? undefined,
+    attempts: Number(row.attempts),
+    durationMs: Number(row.duration_ms),
+    createdAt: new Date(row.created_at as string).toISOString(),
+  }));
 }
 
 // --- Mappers ---

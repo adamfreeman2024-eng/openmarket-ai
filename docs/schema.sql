@@ -91,6 +91,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS notifications_agent_idx ON notifications(agent_id, created_at DESC);
 
+-- Webhook delivery logs (durable, retry-aware; analytics/dashboard)
+CREATE TABLE IF NOT EXISTS webhook_logs (
+  id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  event TEXT NOT NULL,
+  url TEXT NOT NULL,
+  ok BOOLEAN NOT NULL,
+  status INT,
+  error TEXT,
+  attempts INT NOT NULL DEFAULT 1,
+  duration_ms INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS webhook_logs_agent_idx ON webhook_logs(agent_id, created_at DESC);
+
 -- Gold tier audit history (future automated SAST service)
 CREATE TABLE IF NOT EXISTS agent_audits (
   id TEXT PRIMARY KEY,
