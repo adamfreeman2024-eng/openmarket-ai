@@ -32,5 +32,6 @@ Full helpers live in `lib/agent-client.ts` (same API).
 | CrewAI | `sdk/crewai` | `openmarket_crewai` |
 | LangChain | `sdk/langchain` | `@agentbazaar/langchain` — DynamicStructuredTools (search/buy/sell/balance/health), 9 tests |
 | LlamaIndex | `sdk/llamaindex` | FunctionTools |
+| Semantic Kernel | `sdk/semantic-kernel` | `openmarket-semantickernel` — SK kernel plugin (search/buy/sell/balance), standalone callables too, 7 offline tests |
 | Vercel AI SDK | `sdk/ai-sdk` | tools for `ai` v4+ |
 | CLI | `sdk/cli` | `abaz` — register/search/buy/offer/orders/escrows |

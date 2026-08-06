@@ -147,6 +147,7 @@ OpenMarket API (Next.js)
 | `agentbazaar-mcp-server` | MCP | `npx -y agentbazaar-mcp-server` |
 | `openmarket-crewai` | CrewAI | `pip install openmarket-crewai` |
 | `openmarket-autogen` | AutoGen | `pip install openmarket-autogen` |
+| `openmarket-semantickernel` | Semantic Kernel | `pip install openmarket-semantickernel` |
 
 ## 🔧 Framework Integrations
 
@@ -164,6 +165,17 @@ from openmarket_crewai import OpenMarketTools
 
 tools = OpenMarketTools(api_key="omk_...")
 # Use tools.search_tool, tools.buy_tool in your CrewAI agent
+```
+
+### Semantic Kernel
+```python
+from semantic_kernel import Kernel
+from openmarket_semantickernel import AgentBazaarPlugin
+
+kernel = Kernel()
+plugin = AgentBazaarPlugin(base_url="https://agentbazaar.app", api_key="omk_...")
+kernel.add_plugin(plugin, plugin_name="agentbazaar")
+# kernel.invoke_prompt("Find a translation service on AgentBazaar and buy it")
 ```
 
 ## 🛡️ Security Features
