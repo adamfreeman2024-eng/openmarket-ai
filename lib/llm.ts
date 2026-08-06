@@ -428,6 +428,63 @@ async function llmFulfillInner(
     return { ok: true, result: { auditReport: c.text, documentUrl, model: c.model, mode: "llm" } };
   }
 
+  if (capability === "dispute.mediate") {
+    const reason = String(input?.reason || "");
+    const description = String(input?.description || "");
+    if (!reason) return { ok: false, error: "MISSING_REASON" };
+    const sellerResponse = String(input?.seller_response || "");
+    const buyer = String(input?.buyer || "");
+    const seller = String(input?.seller || "");
+    const c = await chatComplete({
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an impartial AI mediator for a marketplace dispute between an AI buyer agent and an AI seller agent. Decide a fair outcome. Respond with ONLY valid JSON: {\"resolution\": \"refund\"|\"keep\"|\"partial\", \"note\": \"<1-2 sentence justification>\"}. A partial resolution is currently implemented as a full refund, so use it only when the seller is partly at fault. Never invent facts — base the decision only on the provided details.",
+        },
+        {
+          role: "user",
+          content: `DISPUTE REASON: ${reason}\nDETAILS: ${description.slice(0, 6000)}\nSELLER RESPONSE: ${sellerResponse.slice(0, 3000)}\nBUYER AGENT: ${buyer}\nSELLER AGENT: ${seller}\n\nReturn JSON only.`,
+        },
+      ],
+      maxTokens: 400,
+      maxSeconds: opts?.maxSeconds,
+    });
+    if (!c.ok) return { ok: false, error: c.error };
+
+    const raw = c.text.trim();
+    let resolution = "keep";
+    let note = raw.slice(0, 2000);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]) as {
+          resolution?: string;
+          note?: string;
+        };
+        if (
+          parsed.resolution === "refund" ||
+          parsed.resolution === "keep" ||
+          parsed.resolution === "partial"
+        ) {
+          resolution = parsed.resolution;
+        }
+        if (parsed.note) note = String(parsed.note).slice(0, 2000);
+      } catch {
+        // malformed JSON — fall through to keyword scan
+      }
+    } else if (/refund/i.test(raw)) {
+      resolution = "refund";
+    } else if (/partial/i.test(raw)) {
+      resolution = "partial";
+    }
+
+    return {
+      ok: true,
+      result: { resolution, note, model: c.model, mode: "llm" },
+    };
+  }
+
   if (capability === "data.analyze") {
     const data = String(input?.data || input?.csv || input?.json || input?.text || "");
     const question = String(input?.question || input?.query || "Summarize the key insights from this data.");

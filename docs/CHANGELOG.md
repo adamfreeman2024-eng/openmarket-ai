@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.8 (2026-08-06)
+- **AI Dispute Mediation (`dispute.mediate`)** — Phase 2.2 / Phase 4.4. New capability + `POST /api/v1/disputes/:id/mediate`: either party can invoke the AI mediator (LLM reviews reason/details/seller response and proposes refund|keep|partial with a note), and the platform applies the decision to the dispute + escrow via `applyMediation` (`resolvedBy: platform`, `(AI-mediated)` note). Included: llm.ts branch (strict-JSON + keyword fallback), `lib/dispute.ts` helper, settlement llmCaps, smart-discovery KNOWN_CAPS + heuristic, seed offers (OM Mediator agent + OM Auditor mediation offer), full test coverage (unit-mediation.test.ts + applyMediation cases). Total: 94 tests green, typecheck + build 0 errors.
+
 ## 1.4.7 (2026-08-06)
 - **Dispute Resolution System — full coverage.** `tests/unit-dispute.test.ts` expanded from 7 → 16 tests: escrow state transitions on open (→ disputed), resolve keep (→ released), resolve refund / partial (→ refunded, with `dispute_refund` / `dispute_partial_refund` reasons), respond-after-resolve rejected, unknown-id handling, and the 24h **auto-resolve stale disputes** path (auto_refunded + escrow refunded via vitest fake timers; fresh and responded disputes are left untouched). Total: 82 tests green, typecheck + build 0 errors.
 

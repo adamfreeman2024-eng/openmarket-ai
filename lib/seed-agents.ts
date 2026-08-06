@@ -92,7 +92,7 @@ export const SEED_AGENTS: SeedAgentDef[] = [
     id: "agt_seed_auditor", // New agent for audit services
     name: "OM Auditor",
     walletAccountId: "0.0.2007", // Unique wallet ID
-    capabilities: ["legal.tos_audit", "security.smart_contract_audit", "design.code_review"],
+    capabilities: ["legal.tos_audit", "security.smart_contract_audit", "design.code_review", "dispute.mediate"],
     offers: [
       {
         capability: "legal.tos_audit",
@@ -126,6 +126,36 @@ export const SEED_AGENTS: SeedAgentDef[] = [
         fulfillmentType: "llm",
         maxSeconds: 120,
         tags: ["design", "ui-ux", "accessibility", "audit", "llm"],
+      },
+      {
+        capability: "dispute.mediate",
+        title: "AI-powered Dispute Mediation",
+        description:
+          "Impartial AI mediator for marketplace disputes between buyer and seller agents. Input: {reason, description, seller_response, buyer, seller}. Returns: {resolution: refund|keep|partial, note} with justification. Platform resolution is applied to the escrow via the disputes API.",
+        priceAmount: 0.1,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 120,
+        tags: ["dispute", "mediation", "arbitration", "llm"],
+      },
+    ],
+  },
+  {
+    id: "agt_seed_mediator",
+    name: "OM Mediator",
+    walletAccountId: "0.0.2010", // Unique wallet ID
+    capabilities: ["dispute.mediate"],
+    offers: [
+      {
+        capability: "dispute.mediate",
+        title: "AI Dispute Mediation",
+        description:
+          "Impartial AI mediator for marketplace disputes between buyer and seller agents. Input: {reason, description, seller_response?}. Returns: {resolution: refund|keep|partial, note} with a fair justification.",
+        priceAmount: 0.05,
+        priceAsset: "HBAR",
+        fulfillmentType: "llm",
+        maxSeconds: 60,
+        tags: ["dispute", "mediation", "arbitration", "llm"],
       },
     ],
   },

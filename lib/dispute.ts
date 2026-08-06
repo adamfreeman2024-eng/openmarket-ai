@@ -242,3 +242,17 @@ export function autoResolveStaleDisputes(): DisputeRecord[] {
 
   return staleDisputes;
 }
+
+/** AI-assisted platform mediation — applies the AI mediator's decision as a platform resolution. */
+export function applyMediation(
+  disputeId: string,
+  resolution: "refund" | "keep" | "partial",
+  note?: string
+): DisputeRecord | null {
+  return resolveDispute(
+    disputeId,
+    resolution,
+    "platform",
+    note ? `${note} (AI-mediated)` : "AI-mediated"
+  );
+}

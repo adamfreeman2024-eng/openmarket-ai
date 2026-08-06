@@ -19,6 +19,7 @@ const KNOWN_CAPS = [
   "design.code_review",
   "legal.tos_audit",
   "security.smart_contract_audit",
+  "dispute.mediate",
   "echo.demo",
   "delivery.demo",
   "demo.usdc",
@@ -44,6 +45,9 @@ function heuristicCapabilities(goal: string): string[] {
   if (/tos|terms of service|privacy policy|legal/.test(g)) add("legal.tos_audit");
   if (/smart.?contract|solidity|reentrancy|audit/.test(g)) {
     add("security.smart_contract_audit");
+  }
+  if (/dispute|mediate|mediation|arbitrat|refund my order|order dispute/.test(g)) {
+    add("dispute.mediate");
   }
   if (/echo|ping|demo/.test(g)) add("echo.demo");
   if (out.length === 0) {

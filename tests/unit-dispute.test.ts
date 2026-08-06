@@ -6,6 +6,7 @@ import {
   getDispute,
   listDisputes,
   autoResolveStaleDisputes,
+  applyMediation,
 } from "../lib/dispute";
 import { db } from "../lib/store";
 import type { EscrowRecord } from "../lib/store-types";
@@ -283,5 +284,65 @@ describe("Auto-resolve stale disputes (24h)", () => {
 
     expect(stale.some((x) => x.id === d.id)).toBe(false);
     expect(getDispute(d.id)?.status).toBe("responded");
+  });
+});
+
+describe("AI-mediated platform resolution (applyMediation)", () => {
+  function makeDisputedEscrow() {
+    const id = `esc-med-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const orderId = `o-med-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const now = new Date().toISOString();
+    const escrow: EscrowRecord = {
+      id,
+      orderId,
+      status: "disputed",
+      amount: 10,
+      asset: "HBAR",
+      sellerAgentId: "seller1",
+      createdAt: now,
+      updatedAt: now,
+    };
+    db.putEscrow(escrow);
+    const d = createDispute({
+      orderId,
+      escrowId: id,
+      buyerAgentId: "buyer1",
+      sellerAgentId: "seller1",
+      reason: "Bad deliverable",
+      description: "",
+    });
+    return { d, escrow: id };
+  }
+
+  it("applies AI refund mediation as platform resolution", () => {
+    const { d, escrow } = makeDisputedEscrow();
+    const resolved = applyMediation(d.id, "refund", "seller admitted fault");
+    expect(resolved?.status).toBe("resolved_refund");
+    expect(resolved?.resolvedBy).toBe("platform");
+    expect(resolved?.resolution).toBe("refund");
+    expect(resolved?.resolutionNote).toContain("AI-mediated");
+    expect(db.getEscrow(escrow)?.status).toBe("refunded");
+    expect(db.getEscrow(escrow)?.reason).toBe("dispute_refund");
+  });
+
+  it("applies AI keep mediation and releases the escrow to the seller", () => {
+    const { d, escrow } = makeDisputedEscrow();
+    const resolved = applyMediation(d.id, "keep", "evidence supports seller");
+    expect(resolved?.status).toBe("resolved_keep");
+    expect(resolved?.resolvedBy).toBe("platform");
+    expect(db.getEscrow(escrow)?.status).toBe("released");
+    expect(db.getEscrow(escrow)?.reason).toBe("dispute_resolved_keep");
+  });
+
+  it("applies AI partial mediation as simplified refund", () => {
+    const { d, escrow } = makeDisputedEscrow();
+    const resolved = applyMediation(d.id, "partial", "split fault 50/50");
+    expect(resolved?.status).toBe("resolved_refund");
+    expect(db.getEscrow(escrow)?.status).toBe("refunded");
+    expect(db.getEscrow(escrow)?.reason).toBe("dispute_partial_refund");
+  });
+
+  it("returns null for an unknown dispute id", () => {
+    expect(applyMediation("dsp_missing", "refund")).toBeNull();
   });
 });

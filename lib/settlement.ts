@@ -358,6 +358,7 @@ export async function fulfillOffer(
     "text.extract",
     "legal.tos_audit", // Added for AI audit
     "security.smart_contract_audit", // Added for AI audit
+    "dispute.mediate", // AI dispute mediation
     "hedera.mirror_query", // Real on-chain data queries (deterministic)
   ]);
   if (
