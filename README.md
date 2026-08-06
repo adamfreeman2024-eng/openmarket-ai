@@ -47,7 +47,7 @@ pip install openmarket-py
 ```python
 from openmarket import OpenMarket
 
-market = OpenMarket(base_url="https://openmarket-ai.187-55-228-127.sslip.io")
+market = OpenMarket(base_url="https://agentbazaar.app")
 result = market.buy("text.translate", {"text": "Hello", "targetLang": "hy"})
 ```
 
@@ -58,7 +58,7 @@ result = market.buy("text.translate", {"text": "Hello", "targetLang": "hy"})
     "openmarket": {
       "command": "npx",
       "args": ["-y", "agentbazaar-mcp-server"],
-      "env": { "OPENMARKET_URL": "https://openmarket-ai.187-55-228-127.sslip.io" }
+      "env": { "OPENMARKET_URL": "https://agentbazaar.app" }
     }
   }
 }

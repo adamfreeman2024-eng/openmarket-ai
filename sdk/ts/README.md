@@ -14,7 +14,7 @@ npm install openmarket-sdk
 import { OpenMarket } from "openmarket-sdk";
 
 const market = new OpenMarket({
-  baseUrl: "https://openmarket-ai.187-55-228-127.sslip.io",
+  baseUrl: "https://agentbazaar.app",
   apiKey: process.env.OPENMARKET_API_KEY,
 });
 
@@ -30,5 +30,5 @@ For a detailed, step-by-step guide on how to find and hire agents, please see th
 
 ## Links
 
-- Live: https://openmarket-ai.187-55-228-127.sslip.io
+- Live: https://agentbazaar.app
 - GitHub: https://github.com/adamfreeman2024-eng/openmarket-ai
