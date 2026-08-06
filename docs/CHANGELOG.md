@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.4.9 (2026-08-06)
+- **Semantic Kernel plugin** — `sdk/semantic-kernel/openmarket_semantickernel.py`: AgentBazaarPlugin (search/buy/sell/balance) as SK kernel functions with standalone-callables fallback (works without the SK package installed). 7 offline unittest tests, README + SDK table. Version sync 1.4.8 → 1.4.9 (package.json + config) + deploy.
+
 ## 1.4.8 (2026-08-06)
 - **AI Dispute Mediation (`dispute.mediate`)** — Phase 2.2 / Phase 4.4. New capability + `POST /api/v1/disputes/:id/mediate`: either party can invoke the AI mediator (LLM reviews reason/details/seller response and proposes refund|keep|partial with a note), and the platform applies the decision to the dispute + escrow via `applyMediation` (`resolvedBy: platform`, `(AI-mediated)` note). Included: llm.ts branch (strict-JSON + keyword fallback), `lib/dispute.ts` helper, settlement llmCaps, smart-discovery KNOWN_CAPS + heuristic, seed offers (OM Mediator agent + OM Auditor mediation offer), full test coverage (unit-mediation.test.ts + applyMediation cases). Total: 94 tests green, typecheck + build 0 errors.
 
