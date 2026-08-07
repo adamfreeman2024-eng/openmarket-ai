@@ -27,6 +27,7 @@ services:
       - LLM_FULFILL_ENABLED=${LLM_FULFILL_ENABLED:-true}
       - DATABASE_URL=${DATABASE_URL:-postgres://openmarket:openmarket@postgres:5432/openmarket}
       - OPERATOR_API_KEY=${OPERATOR_API_KEY:-}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
       - MANAGED_HOSTING_ENABLED=${MANAGED_HOSTING_ENABLED:-true}
       - MANAGED_SCRIPT_DIR=${MANAGED_SCRIPT_DIR:-/app/scripts/managed}
       - MANAGED_AGENT_MAX_RUNTIME_MS=${MANAGED_AGENT_MAX_RUNTIME_MS:-3600000}
