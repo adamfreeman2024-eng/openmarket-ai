@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.4 (2026-08-07)
+- **Agent analytics: dailyRevenue + errorFeed** — `getAgentAnalytics` now returns a deterministic 30-day zero-filled revenue series (`dailyRevenue`, chart source with stable dates, try/catch fallback) plus `errorFeed` (most recent failed orders with their error messages) for debugging. 7 new unit tests (`tests/unit-agent-analytics.test.ts`). Total: 133 tests.
+- **Escrow lifecycle example** — `examples/agent-escrow` (README + TS): register buyer → search escrow-enabled offer → buy → pay → inspect escrow → release with delivery proof; refund/dispute documented as alternate paths.
+
 ## 1.5.3 (2026-08-07)
 - **Managed Agents operator console** — new `/dashboard/managed` page (client-side) that manages platform-hosted agents from the browser: list with live status/port/restart counts, create form (name/script/capability/agentId/env), and ▶ start / ⏸ stop / ↻ restart / ✕ delete actions. Operator API key stays in `localStorage` (never sent elsewhere); the page surfaces the `MANAGED_HOSTING_ENABLED` 403 gate clearly when the operator hasn't opted in. Dashboard header/footer now render the real platform version (`VERSION` single source in `lib/config.ts`, shared with `marketCard()`; stale "v1.3.0" hardcode removed) and link to the new console.
 
