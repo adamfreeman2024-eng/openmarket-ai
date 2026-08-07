@@ -12,6 +12,8 @@ import {
   CATALOG_SORTS,
   type CatalogParams,
 } from "@/lib/catalog-params";
+import { computeSLA } from "@/lib/reputation-v2";
+import { slaBadge } from "@/lib/sla-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +37,35 @@ export default async function CatalogPage({
 
   const agentMap = new Map(db.listAgents().map((a) => [a.id, a]));
   const allOffers = db.listOffers();
+  const orders = db.listOrders();
+  const escrows = db.listEscrows();
   const reviewStats = new Map<string, { average: number; total: number }>();
   for (const a of db.listAgents()) {
     const s = getReviewStats(a.id);
     if (s.total > 0) reviewStats.set(a.id, { average: s.average, total: s.total });
+  }
+
+  // SLA stats per seller agent — on-time delivery rate from completed orders
+  // (same source the search API uses, so catalog badges match machine results).
+  const slaStats = new Map<string, { onTimeRate: number; totalDeliveries: number; avgLatencyMs: number }>();
+  const ordersByAgent = new Map<string, number>();
+  const successRateByAgent = new Map<string, number>();
+  for (const a of db.listAgents()) {
+    const sellerOrders = orders.filter((o) => o.sellerAgentId === a.id);
+    const sla = computeSLA(a, sellerOrders);
+    if (sla.totalDeliveries > 0) {
+      slaStats.set(a.id, {
+        onTimeRate: sla.onTimeRate,
+        totalDeliveries: sla.totalDeliveries,
+        avgLatencyMs: sla.avgDeliveryTime,
+      });
+    }
+    ordersByAgent.set(a.id, sellerOrders.length);
+    const success = a.stats.success;
+    const fail = a.stats.fail;
+    if (success + fail > 0) {
+      successRateByAgent.set(a.id, success / (success + fail));
+    }
   }
 
   const results = searchOffers(allOffers, agentMap, {
@@ -49,14 +76,24 @@ export default async function CatalogPage({
     sortBy: p.sortBy,
     minRating: p.minRating,
     minReviewRating: p.minReviewRating,
+    minOnTimeRate: p.minOnTimeRate,
+    escrowOnly: p.escrowOnly || undefined,
     maxPrice: p.maxPrice,
     asset: p.asset,
     limit: p.limit,
+    escrows,
+    ordersByAgent,
+    slaStats,
+    successRateByAgent,
     reviewStats,
   }).map((r) => ({
     ...r,
     seller: r.seller
-      ? { ...r.seller, reviews: reviewStats.get(r.offer.agentId) || null }
+      ? {
+          ...r.seller,
+          reviews: reviewStats.get(r.offer.agentId) || null,
+          sla: slaStats.get(r.offer.agentId) || null,
+        }
       : null,
   }));
 
@@ -80,6 +117,7 @@ export default async function CatalogPage({
     reputation: "Reputation",
     speed: "Speed",
     rating: "Rating",
+    quality: "Quality",
   };
 
   return (
@@ -159,6 +197,36 @@ export default async function CatalogPage({
             <option value="0.8">80%+ success</option>
             <option value="0.7">70%+ success</option>
           </select>
+          <select
+            name="minOnTimeRate"
+            defaultValue={p.minOnTimeRate != null ? String(p.minOnTimeRate) : ""}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              border: "1px solid #334155",
+              background: "#0b1220",
+              color: "#e5e7eb",
+              fontSize: 13,
+            }}
+          >
+            <option value="">Any SLA</option>
+            <option value="0.95">SLA 95%+</option>
+            <option value="0.9">SLA 90%+</option>
+            <option value="0.8">SLA 80%+</option>
+          </select>
+          <label
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 13,
+              color: "#94a3b8",
+              cursor: "pointer",
+            }}
+          >
+            <input type="checkbox" name="escrowOnly" value="1" defaultChecked={p.escrowOnly} />
+            Escrow only
+          </label>
           <input
             type="number"
             name="maxPrice"
@@ -205,8 +273,8 @@ export default async function CatalogPage({
           >
             Apply
           </button>
-          {p.q || p.sortBy || p.minRating != null || p.maxPrice != null || p.asset ? (
-            <Link href={catalogHref({ ...p, q: undefined, sortBy: undefined, minRating: undefined, minReviewRating: undefined, maxPrice: undefined, asset: undefined })} className="link" style={{ fontSize: 12 }}>
+          {p.q || p.sortBy || p.minRating != null || p.minOnTimeRate != null || p.escrowOnly || p.maxPrice != null || p.asset ? (
+            <Link href={catalogHref({ ...p, q: undefined, sortBy: undefined, minRating: undefined, minReviewRating: undefined, minOnTimeRate: undefined, escrowOnly: false, maxPrice: undefined, asset: undefined })} className="link" style={{ fontSize: 12 }}>
               Reset filters
             </Link>
           ) : null}
@@ -409,6 +477,22 @@ export default async function CatalogPage({
                       {"★".repeat(Math.round(reviews.average))}
                       {"☆".repeat(5 - Math.round(reviews.average))}{" "}
                       {reviews.average.toFixed(1)} ({reviews.total})
+                    </span>
+                  ) : null}
+                  {slaBadge(r.seller?.sla) ? (
+                    <span
+                      style={{
+                        color: "#4ade80",
+                        border: "1px solid rgba(74,222,128,0.4)",
+                        borderRadius: 999,
+                        padding: "0 6px",
+                        fontSize: 11,
+                        marginLeft: 4,
+                        whiteSpace: "nowrap",
+                      }}
+                      title={`${r.seller?.sla?.totalDeliveries} completed deliveries`}
+                    >
+                      {slaBadge(r.seller?.sla)}
                     </span>
                   ) : null}
                   {" · success "}

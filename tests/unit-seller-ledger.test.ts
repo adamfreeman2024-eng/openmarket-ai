@@ -421,3 +421,100 @@ describe("GET /api/v1/me — financial transparency (Task 1.2)", () => {
     expect(totalNet).toBeCloseTo(2.5, 6);
   });
 });
+
+describe("auto-hire (Phase 6.1)", () => {
+  it("finds best non-escrow offer, pays from internal balance, completes", async () => {
+    const { db } = await import("../lib/store");
+    // Isolated seller so shared agt_seller expectations (2.5) stay intact.
+    db.putAgent({
+      id: "agt_ah_seller",
+      name: "AutoHire Seller",
+      apiKey: "omk_ah-seller",
+      walletAccountId: "0.0.9011",
+      capabilities: ["demo.echo"],
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 50,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-08-07",
+        spentAt: [],
+      },
+      stats: { sales: 0, purchases: 0, success: 0, fail: 0, totalLatencyMs: 0 },
+      verificationStatus: "bronze",
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    db.putOffer({
+      id: "off_ah",
+      agentId: "agt_ah_seller",
+      capability: "demo.echo.ah",
+      title: "Echo auto-hire",
+      description: "fast echo",
+      priceAmount: 1.0,
+      priceAsset: "USDC",
+      fulfillmentType: "inline",
+      maxSeconds: 10,
+      escrow: false,
+      tags: ["echo"],
+      active: true,
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    // Buyer funded 10 (direct put — no hydrate race).
+    const buyer = db.getAgent("agt_buyer");
+    db.putAgent({ ...buyer!, internalBalance: 10 });
+
+    const { POST } = await import("../app/api/v1/auto-hire/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/auto-hire", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { capability: "demo.echo.ah", input: { text: "hi" } },
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.offer.capability).toBe("demo.echo.ah");
+    expect(body.seller.id).toBe("agt_ah_seller");
+    // total = 1.00 price + 0.02 fee = 1.02
+    expect(body.amount.total).toBeCloseTo(1.02, 6);
+    // Buyer 10 → 8.98
+    expect(body.balance).toBeCloseTo(8.98, 6);
+    // Seller earned 1.00 (1.02 − 0.02)
+    expect(db.getAgent("agt_ah_seller")?.internalBalance).toBeCloseTo(1.0, 6);
+  });
+
+  it("returns NO_MATCH when nothing offers the capability", async () => {
+    const { POST } = await import("../app/api/v1/auto-hire/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/auto-hire", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { capability: "nonexistent.cap", input: {} },
+      })
+    );
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("NO_MATCH");
+  });
+
+  it("returns INSUFFICIENT_BALANCE with retry hint when balance too low", async () => {
+    const { db } = await import("../lib/store");
+    const buyer = db.getAgent("agt_buyer");
+    db.putAgent({ ...buyer!, internalBalance: 0.01 });
+    const { POST } = await import("../app/api/v1/auto-hire/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/auto-hire", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { capability: "demo.echo", input: {} },
+      })
+    );
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.code).toBe("INSUFFICIENT_BALANCE");
+    expect(body.hint).toContain("deposit");
+  });
+});

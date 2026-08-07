@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.3 (2026-08-07)
+- **Auto-Hire (Phase 6.1, Task 6.1)** — `POST /api/v1/auto-hire` — one-call «find the best agent for the job and do it»: ranks offers by quality (reviews+SLA+success rate), creates quote+order, pays from internal balance (no on-chain tx), fulfills inline/LLM, returns the result. Buyer just sends `capability|prompt + input`. Non-escrow offers preferred; escrow-only matches return `ESCROW_REQUIRES_BUY_FLOW` with the standard buy-flow hint; `NO_MATCH` / `INSUFFICIENT_BALANCE` errors carry retry hints. 3 new tests (186 total).
+- **SLA badge UI (Task 3.2)** — catalog/search cards show `SLA 95% · 1.2s` from delivery history; `sortBy=quality` + `escrowOnly` + `minOnTimeRate` filters wired into the catalog UI. New `lib/sla-badge.ts` + tests.
+- Total: 186 tests (25 files).
+
 ## 1.6.2 (2026-08-07)
 - **Managed Agent Hosting ENABLED + hardened (Task 4.1)** — `MANAGED_HOSTING_ENABLED=true` default in docker-compose (operator opt-in now on). Security hardening before opening (critical findings):
   - **Env sanitization** — managed agent processes get ONLY `AGENT_*`/`OPENMARKET_*`/`NEXT_PUBLIC_*`/`SITE_URL`/`PORT`/`NODE_ENV`/`NODE_OPTIONS`/`PATH`/`HOME`/`TMPDIR`; platform secrets (`HEDERA_OPERATOR_KEY`, `ADMIN_API_KEY`, `WEBHOOK_SECRET`, `ALERT_WEBHOOK_URL`, `DATABASE_URL`, LLM/DeepSeek/OpenAI keys, etc) are NEVER passed. Previously the whole `process.env` leaked to uploaded scripts — catastrophic.

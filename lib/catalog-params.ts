@@ -12,6 +12,7 @@ export const CATALOG_SORTS = [
   "reputation",
   "speed",
   "rating",
+  "quality",
 ] as const;
 
 export type CatalogSort = (typeof CATALOG_SORTS)[number];
@@ -24,6 +25,8 @@ export type CatalogParams = {
   sortBy?: CatalogSort;
   minRating?: number;
   minReviewRating?: number;
+  minOnTimeRate?: number;
+  escrowOnly?: boolean;
   maxPrice?: number;
   asset?: "HBAR" | "USDC";
   limit: number;
@@ -51,6 +54,9 @@ export function parseCatalogParams(sp: URLSearchParams): CatalogParams {
 
   const minRating = parseBounded(sp.get("minRating"), 0, 1);
   const minReviewRating = parseBounded(sp.get("minReviewRating"), 1, 5);
+  const minOnTimeRate = parseBounded(sp.get("minOnTimeRate"), 0, 1);
+  const escrowOnly =
+    sp.get("escrowOnly") === "1" || sp.get("escrowOnly") === "true";
   const maxPrice = parseBounded(sp.get("maxPrice"), 0, Number.MAX_SAFE_INTEGER);
 
   const rawAsset = sp.get("asset");
@@ -70,6 +76,8 @@ export function parseCatalogParams(sp: URLSearchParams): CatalogParams {
     sortBy,
     minRating,
     minReviewRating,
+    minOnTimeRate,
+    escrowOnly,
     maxPrice,
     asset,
     limit,
@@ -99,6 +107,9 @@ export function catalogHref(params: CatalogParams): string {
   if (params.minRating != null) sp.set("minRating", String(params.minRating));
   if (params.minReviewRating != null)
     sp.set("minReviewRating", String(params.minReviewRating));
+  if (params.minOnTimeRate != null)
+    sp.set("minOnTimeRate", String(params.minOnTimeRate));
+  if (params.escrowOnly) sp.set("escrowOnly", "1");
   if (params.maxPrice != null) sp.set("maxPrice", String(params.maxPrice));
   if (params.asset) sp.set("asset", params.asset);
   if (params.limit !== DEFAULT_LIMIT) sp.set("limit", String(params.limit));

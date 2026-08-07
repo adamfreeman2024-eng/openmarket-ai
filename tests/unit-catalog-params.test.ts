@@ -17,6 +17,8 @@ describe("parseCatalogParams", () => {
     expect(p.sortBy).toBeUndefined();
     expect(p.minRating).toBeUndefined();
     expect(p.minReviewRating).toBeUndefined();
+    expect(p.minOnTimeRate).toBeUndefined();
+    expect(p.escrowOnly).toBe(false);
     expect(p.maxPrice).toBeUndefined();
     expect(p.asset).toBeUndefined();
     expect(p.limit).toBe(DEFAULT_LIMIT);
@@ -37,7 +39,17 @@ describe("parseCatalogParams", () => {
   it("validates sortBy against the whitelist", () => {
     expect(parseCatalogParams(new URLSearchParams("sortBy=rating")).sortBy).toBe("rating");
     expect(parseCatalogParams(new URLSearchParams("sortBy=price_low")).sortBy).toBe("price_low");
+    expect(parseCatalogParams(new URLSearchParams("sortBy=quality")).sortBy).toBe("quality");
     expect(parseCatalogParams(new URLSearchParams("sortBy=bogus")).sortBy).toBeUndefined();
+  });
+
+  it("parses minOnTimeRate and escrowOnly", () => {
+    const p = parseCatalogParams(new URLSearchParams("minOnTimeRate=0.9&escrowOnly=1"));
+    expect(p.minOnTimeRate).toBe(0.9);
+    expect(p.escrowOnly).toBe(true);
+    expect(parseCatalogParams(new URLSearchParams("minOnTimeRate=1.5")).minOnTimeRate).toBeUndefined();
+    expect(parseCatalogParams(new URLSearchParams("escrowOnly=false")).escrowOnly).toBe(false);
+    expect(parseCatalogParams(new URLSearchParams("escrowOnly=true")).escrowOnly).toBe(true);
   });
 
   it("bounds numeric filters", () => {
@@ -82,6 +94,16 @@ describe("catalogHref", () => {
     expect(href).toContain("maxPrice=5");
     expect(href).toContain("asset=HBAR");
     expect(href).not.toContain("limit=");
+  });
+
+  it("round-trips SLA + escrow-only filters", () => {
+    const p = parseCatalogParams(new URLSearchParams("minOnTimeRate=0.9&escrowOnly=1"));
+    const href = catalogHref(p);
+    expect(href).toContain("minOnTimeRate=0.9");
+    expect(href).toContain("escrowOnly=1");
+    const back = parseCatalogParams(new URLSearchParams(href.replace("/catalog?", "")));
+    expect(back.minOnTimeRate).toBe(0.9);
+    expect(back.escrowOnly).toBe(true);
   });
 
   it("preserves capability and category when building", () => {
