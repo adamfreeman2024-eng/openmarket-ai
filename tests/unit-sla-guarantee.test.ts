@@ -213,4 +213,55 @@ describe("POST /api/v1/buy — guarantee on PAYMENT_REQUIRED (escrow only)", () 
     const stored = db.getEscrow(body.escrow.id);
     expect(stored?.expiresAt).toBe(body.guarantee.deadline);
   });
+
+  it("pay-route escrow path (quote→order→pay) also exposes guarantee (parity with buy)", async () => {
+    const { db } = await import("../lib/store");
+    putOffer("off_sla_esc_pay", true, 1.5);
+    // Buyer needs a wallet so the pay route's buyer match passes.
+    const buyer = db.getAgent("agt_sla_buyer");
+    db.putAgent({ ...buyer!, walletAccountId: "0.0.9102" });
+
+    // quote
+    const { POST: quotePost } = await import("../app/api/v1/quotes/route");
+    const qres = await quotePost(
+      req("https://agentbazaar.app/api/v1/quotes", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { offerId: "off_sla_esc_pay", input: { text: "hi" } },
+      })
+    );
+    const qbody = await qres.json();
+    expect(qbody.escrowDeadline).toBeDefined();
+
+    // order (awaiting_payment)
+    const { POST: orderPost } = await import("../app/api/v1/orders/route");
+    const ores = await orderPost(
+      req("https://agentbazaar.app/api/v1/orders", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { quoteId: qbody.quote.id },
+      })
+    );
+    const obody = await ores.json();
+    const orderId = (obody.orderId || obody.order?.id) as string;
+    expect(orderId).toBeDefined();
+
+    // pay (verifyPayment mocked ok) → escrow locked + guarantee
+    const { POST: payPost } = await import("../app/api/v1/orders/[id]/pay/route");
+    const pres = await payPost(
+      req("https://agentbazaar.app/api/v1/orders/ord_x/pay", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { devFakePay: true },
+      }),
+      { params: Promise.resolve({ id: orderId }) }
+    );
+    expect(pres.status).toBe(200);
+    const pbody = await pres.json();
+    expect(pbody.escrow.status).toBe("locked");
+    expect(pbody.guarantee).toBeDefined();
+    expect(pbody.guarantee.escrow).toBe(true);
+    expect(pbody.guarantee.deadline).toBe(pbody.escrow.expiresAt);
+    expect(pbody.guarantee.message).toContain("automatically refunded");
+  });
 });

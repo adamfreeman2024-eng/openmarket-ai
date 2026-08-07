@@ -152,6 +152,13 @@ export async function POST(
         ok: true,
         order: live,
         escrow,
+        // SLA guarantee (Phase 6.2): funds auto-refund if seller doesn't
+        // deliver by this deadline — same contract as POST /api/v1/buy.
+        guarantee: {
+          escrow: true,
+          deadline: escrow.expiresAt,
+          message: `Your funds are protected by escrow until ${escrow.expiresAt}. If the seller does not deliver by then, the full amount is automatically refunded.`,
+        },
         settlementMode: v.mode,
         note: "Payment accepted; escrow locked until release",
       });

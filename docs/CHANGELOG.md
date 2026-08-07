@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.9 (2026-08-07)
+- **SLA guarantee parity on the pay route (Task 6.2 completion)** — `POST /api/v1/orders/[id]/pay` now returns the same `guarantee { escrow, deadline, message }` on escrow lock as `POST /api/v1/buy` does. Discovered by E2E v3: agents using the quote→order→pay flow (x402 path) never saw the auto-refund deadline. New test covers the full quote→order→pay escrow path (+1, total 209).
+- **E2E v3 comparison script** — `scripts/e2e-v3-compare.ts` measures all three purchase paths on live (internal-balance buy, auto-hire, escrow buy) and prints the v1 (1.5.5) → v2 (1.6.2) → v3 (1.6.8) progress table.
+
 ## 1.6.8 (2026-08-07)
 - **Auto-payout opt-in fully wired (Task 6.3 completion)** — sellers can now opt in to auto-payout over the live API and the choice survives restarts:
   - `PATCH /api/v1/agents/me` accepts `payoutMethod` (`hbar`/`usdc`/`manual`) + `payoutAccount` (nullable to opt out); `GET /api/v1/agents/me` returns them.
