@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
+import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { startManagedAgent } from "@/lib/managed-hosting";
 
 export const runtime = "nodejs";
@@ -16,6 +17,9 @@ export async function POST(
 ) {
   const agent = requireAgent(req);
   if (isResponse(agent)) return agent;
+
+  const rl = await redisRateLimit(`mga-start:${clientKey(req)}`, 20, 60_000);
+  if (!rl.ok) return rateLimitResponse(rl.remaining);
 
   const { id } = await ctx.params;
   const managed = startManagedAgent(id);

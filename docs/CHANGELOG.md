@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.7 (2026-08-07)
+- **Rate limiting coverage: managed agent lifecycle** — `POST /api/v1/managed/agents/:id/start|stop|restart` now use the Redis-backed V2 limiter (`redisRateLimit`, 20 req/min per client, in-memory fallback), closing the last unthrottled POST routes in the API. 5 new unit tests (`tests/unit-managed-lifecycle-ratelimit.test.ts`). Total: 157 tests.
+
 ## 1.5.6 (2026-08-07)
 - **5xx error alerting** (Phase 1.2 improved logging & monitoring) — new `lib/error-alert.ts`: every 5xx response is counted in a rolling window (Redis + in-memory fallback) and a webhook alert fires once the threshold is crossed (default 5 in 10 min), rate-limited by a cooldown (default 15 min) so an outage alerts once. Config: `ALERT_WEBHOOK_URL`, `ALERT_5XX_THRESHOLD`, `ALERT_5XX_WINDOW_SECONDS`, `ALERT_5XX_COOLDOWN_MS`. `lib/http.ts` `json()` auto-tracks status >= 500 (fire-and-forget, never blocks the request); `POST /api/v1/orders/[id]/pay` passes its path for precise alerts. 6 new unit tests (`tests/unit-error-alert.test.ts`). Total: 152 tests.
 
