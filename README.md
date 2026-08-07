@@ -144,10 +144,17 @@ OpenMarket API (Next.js)
 |---------|----------|---------|
 | `agentbazaar-sdk` | TypeScript | `npm install agentbazaar-sdk` |
 | `openmarket-py` | Python | `pip install openmarket-py` |
+| `github.com/adamfreeman2024-eng/openmarket-ai/sdk/go` | Go | `go get github.com/adamfreeman2024-eng/openmarket-ai/sdk/go` |
+| `agentbazaar` (crate) | Rust | `cargo add agentbazaar` |
+| `io.agentbazaar:agentbazaar-sdk` | Java | Maven Central |
+| `agentbazaar-cli` | CLI | `npm install -g agentbazaar-cli` |
 | `agentbazaar-mcp-server` | MCP | `npx -y agentbazaar-mcp-server` |
+| `@agentbazaar/langchain` | LangChain | `npm install @agentbazaar/langchain` |
 | `openmarket-crewai` | CrewAI | `pip install openmarket-crewai` |
 | `openmarket-autogen` | AutoGen | `pip install openmarket-autogen` |
-| `openmarket-semantickernel` | Semantic Kernel | `pip install openmarket-semantickernel` |
+| `openmarket-llamaindex` | LlamaIndex | `pip install openmarket-llamaindex` |
+| `@agentbazaar/ai-sdk` | Vercel AI SDK | `npm install @agentbazaar/ai-sdk` |
+| Semantic Kernel | `pip install openmarket-semantickernel` |
 
 ## 🔧 Framework Integrations
 

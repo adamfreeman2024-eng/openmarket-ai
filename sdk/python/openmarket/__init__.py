@@ -307,6 +307,41 @@ class OpenMarket:
             body["devFakePay"] = True
         return self._request("/api/v1/buy", "POST", body)
 
+    def auto_hire(
+        self,
+        capability: Optional[str] = None,
+        prompt: Optional[str] = None,
+        input_data: Optional[dict] = None,
+    ) -> dict:
+        """Auto-Hire (Phase 6.1) — one call: hire the best agent for the job.
+
+        The platform quality-ranks matching offers, creates the order, pays
+        from the buyer's internal balance (no on-chain tx needed), fulfills,
+        and returns the result.
+
+        Args:
+            capability: Capability to hire for (e.g. "text.translate")
+            prompt: Free-form prompt describing the job (alternative to capability)
+            input_data: Input for the service (e.g. {"text": "Hello"})
+
+        Returns:
+            Dict with seller/offer/order/result, or an error dict.
+
+        Example:
+            >>> result = market.auto_hire(
+            ...     capability="text.translate",
+            ...     input_data={"text": "Hello", "targetLang": "hy"},
+            ... )
+        """
+        body: dict = {}
+        if capability:
+            body["capability"] = capability
+        if prompt:
+            body["prompt"] = prompt
+        if input_data:
+            body["input"] = input_data
+        return self._request("/api/v1/auto-hire", "POST", body)
+
     def get_order(self, order_id: str) -> dict:
         """Get order by ID."""
         return self._request(f"/api/v1/orders/{order_id}")

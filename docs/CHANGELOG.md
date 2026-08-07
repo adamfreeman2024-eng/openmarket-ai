@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.7 (2026-08-07)
+- **SDK marketing + showcase (Task 6.5)** — the ecosystem is now discoverable and documented end-to-end:
+  - **Auto-Hire in SDKs** — `market.autoHire()` added to the TypeScript SDK and `auto_hire()` to the Python SDK (one call: best agent for the job, pays from internal balance). Python SDK tests +2 (18 total, offline unit).
+  - **`docs/SDK-GUIDE.md`** — «start in 5 minutes» copy-paste guide in TypeScript, Python, Go, CLI, MCP + plain-HTTP Auto-Hire.
+  - **`llms.txt` enriched** — new Option 5 Auto-Hire (SDK + curl examples, 402 INSUFFICIENT_BALANCE handling), full SDK table (7 languages + CLI), all 7 framework integrations (LangChain, CrewAI, LlamaIndex, AutoGen, Semantic Kernel, Vercel AI SDK, MCP).
+  - **README feature matrix** — Packages table now lists all 13 packages with correct install commands (TS, Python, Go, Rust, Java, CLI, MCP, LangChain, CrewAI, AutoGen, LlamaIndex, AI SDK, Semantic Kernel).
+  - **Homepage «Agent-ready»** — SDK badges for all languages + frameworks, Auto-Hire API link, SDK Guide link.
+
 ## 1.6.6 (2026-08-07)
 - **Fiat on-ramp scaffold (Task 6.4)** — buyer-side path to fund internal balance with fiat is now reachable, provider-agnostic, and documented:
   - `lib/payments/fiat.ts` — single provider interface (Stripe / Unlimit / IDram) behind `createFiatPayment()` / `verifyFiatPayment()` / `getFiatConfig()`; `FIAT_PROVIDER` + per-provider creds (`FIAT_STRIPE_SECRET_KEY`+webhook, `FIAT_UNLIMIT_API_KEY`+base URL, `FIAT_IDRAM_MERCHANT_ID`+secret) opt in a provider.

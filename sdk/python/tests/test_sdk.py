@@ -108,6 +108,29 @@ class OpenMarketSDKTest(unittest.TestCase):
             r = self.market.list_payouts()
         self.assertTrue(r["ok"])
 
+    # -- auto-hire (Phase 6.1) ------------------------------------------
+    def test_auto_hire_posts_capability_and_input(self):
+        payload = {"ok": True, "offer": {"id": "off_1"}, "result": {"echo": "hi"}}
+        with mock.patch("openmarket.urlopen", return_value=_fake_response(payload)) as m:
+            r = self.market.auto_hire(
+                capability="text.translate",
+                input_data={"text": "Hello", "targetLang": "hy"},
+            )
+        req = m.call_args.args[0]
+        self.assertEqual(req.get_method(), "POST")
+        self.assertEqual(req.full_url, "http://127.0.0.1:3010/api/v1/auto-hire")
+        body = json.loads(req.data)
+        self.assertEqual(body["capability"], "text.translate")
+        self.assertEqual(body["input"]["targetLang"], "hy")
+        self.assertEqual(r["ok"], True)
+
+    def test_auto_hire_supports_free_form_prompt(self):
+        with mock.patch("openmarket.urlopen", return_value=_fake_response({"ok": True})) as m:
+            self.market.auto_hire(prompt="find a translator and translate Hello")
+        body = json.loads(m.call_args.args[0].data)
+        self.assertIn("prompt", body)
+        self.assertNotIn("capability", body)
+
     # -- offers ---------------------------------------------------------
     def test_boost_offer(self):
         with mock.patch("openmarket.urlopen", return_value=_fake_response({"ok": True, "boostedUntil": "2026-08-12", "balance": 3.0})) as m:

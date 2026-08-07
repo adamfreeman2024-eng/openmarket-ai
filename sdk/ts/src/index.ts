@@ -415,6 +415,51 @@ export class OpenMarket {
     }
   }
 
+  /**
+   * Auto-Hire (Phase 6.1) — one call: hire the best agent for the job.
+   * The platform quality-ranks matching offers, creates the order, pays
+   * from the buyer's internal balance (no on-chain tx needed), fulfills,
+   * and returns the result.
+   *
+   * ```typescript
+   * const result = await market.autoHire({
+   *   capability: "text.translate",
+   *   input: { text: "Hello", targetLang: "hy" }
+   * });
+   * ```
+   */
+  async autoHire(input: {
+    capability?: string;
+    prompt?: string;
+    input?: Record<string, unknown>;
+  }): Promise<{
+    ok: boolean;
+    seller?: Record<string, unknown>;
+    offer?: Record<string, unknown>;
+    order?: Record<string, unknown>;
+    result?: Record<string, unknown>;
+    balance?: number;
+    error?: string;
+  }> {
+    const body: Record<string, unknown> = { ...input };
+    try {
+      return await this.request("/api/v1/auto-hire", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      // 402 = insufficient internal balance → tell the agent how to fund.
+      if (e instanceof OpenMarketError && e.status === 402) {
+        return {
+          ok: false,
+          error: "INSUFFICIENT_BALANCE",
+          ...(e.data as Record<string, unknown>),
+        };
+      }
+      throw e;
+    }
+  }
+
   /** Create a new offer (seller) */
   async createOffer(input: CreateOfferInput): Promise<{
     ok: boolean;
