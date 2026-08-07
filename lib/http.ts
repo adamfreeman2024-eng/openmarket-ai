@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "./store";
 import type { AgentRecord } from "./types";
+import { trackServerError } from "./error-alert";
 
 const MAX_JSON_BYTES = Number(process.env.MAX_JSON_BODY_BYTES || 1_000_000);
 
-export function json(data: unknown, status = 200) {
+export function json(data: unknown, status = 200, path?: string) {
+  // Improved Logging & Monitoring (Phase 1.2): every 5xx response is counted
+  // (Redis + memory fallback) and fires a webhook alert past a threshold.
+  if (status >= 500) {
+    const msg =
+      data && typeof data === "object" && "error" in data
+        ? String((data as { error?: unknown }).error || "")
+        : "";
+    void trackServerError(path || "api", msg || `HTTP ${status}`);
+  }
   return NextResponse.json(data, {
     status,
     headers: {

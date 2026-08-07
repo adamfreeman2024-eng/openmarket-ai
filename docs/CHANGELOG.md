@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.6 (2026-08-07)
+- **5xx error alerting** (Phase 1.2 improved logging & monitoring) — new `lib/error-alert.ts`: every 5xx response is counted in a rolling window (Redis + in-memory fallback) and a webhook alert fires once the threshold is crossed (default 5 in 10 min), rate-limited by a cooldown (default 15 min) so an outage alerts once. Config: `ALERT_WEBHOOK_URL`, `ALERT_5XX_THRESHOLD`, `ALERT_5XX_WINDOW_SECONDS`, `ALERT_5XX_COOLDOWN_MS`. `lib/http.ts` `json()` auto-tracks status >= 500 (fire-and-forget, never blocks the request); `POST /api/v1/orders/[id]/pay` passes its path for precise alerts. 6 new unit tests (`tests/unit-error-alert.test.ts`). Total: 152 tests.
+
 ## 1.5.5 (2026-08-07)
 - **Catalog discovery page** — `/catalog` upgraded from a capability-only list to a full discovery UI that mirrors the ranked search API: text search (`q`), category facets (capability prefix, e.g. `text`, `code`, `security`), popular tag pills, sort (relevance/price/reputation/speed/rating), success-rate filter, max price, asset (HBAR/USDC), and capability pills — all server-rendered GET forms/links (no JS needed). New `lib/catalog-params.ts` (validated parsing + href builder + facet derivation, exactly the same filtering semantics as `GET /api/v1/offers/search`) with 13 unit tests (`tests/unit-catalog-params.test.ts`). Total: 146 tests.
 

@@ -75,7 +75,7 @@ export async function POST(
   }
 
   const quote = db.getQuote(order.quoteId);
-  if (!quote) return json({ ok: false, error: "Quote missing" }, 500);
+  if (!quote) return json({ ok: false, error: "Quote missing" }, 500, "/api/v1/orders/[id]/pay");
 
   const v = await verifyPayment({
     transactionId: parsed.data.transactionId,
@@ -211,6 +211,6 @@ export async function POST(
       db.putAgent(seller);
     }
     audit("order.fulfill_fail", { orderId: live.id, error: live.error });
-    return json({ ok: false, error: live.error, order: live }, 500);
+    return json({ ok: false, error: live.error, order: live }, 500, "/api/v1/orders/[id]/pay");
   }
 }
