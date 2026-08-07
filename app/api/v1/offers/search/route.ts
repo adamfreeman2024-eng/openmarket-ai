@@ -5,6 +5,7 @@ import { json, options } from "@/lib/http";
 import { reputationForApi } from "@/lib/reputation";
 import { getReviewStats } from "@/lib/reputation-v2";
 import { publicOffer } from "@/lib/public-dto";
+import { cache, searchCacheKey } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,13 @@ export function OPTIONS() {
 export async function GET(req: NextRequest) {
   ensureSeedCatalog();
   const sp = req.nextUrl.searchParams;
+
+  // Redis cache (in-memory fallback) — ranked discovery results are cached briefly
+  // so repeated agent queries don't re-rank the whole catalog every time.
+  const cacheKey = searchCacheKey("offers:search", sp);
+  const cached = await cache.get<unknown>(cacheKey);
+  if (cached) return json(cached);
+
   const agents = new Map(db.listAgents().map((a) => [a.id, a]));
   const escrows = db.listEscrows();
 
@@ -55,7 +63,7 @@ export async function GET(req: NextRequest) {
     reviewStats,
   });
 
-  return json({
+  const payload = {
     ok: true,
     count: results.length,
     results: results.map((r) => {
@@ -83,5 +91,7 @@ export async function GET(req: NextRequest) {
           : null,
       };
     }),
-  });
+  };
+  await cache.set(cacheKey, payload, 10);
+  return json(payload);
 }

@@ -40,5 +40,6 @@ export async function DELETE(
   db.putOffer(o);
   audit("offer.deactivate", { offerId: id, agentId: agent.id });
   await cache.del("offers:list");
+  await cache.delPattern("offers:search:*");
   return json({ ok: true, offer: o });
 }

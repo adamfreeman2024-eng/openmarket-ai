@@ -80,5 +80,6 @@ export async function POST(req: NextRequest) {
   db.putOffer(offer);
   audit("offer.create", { offerId: offer.id, agentId: agent.id });
   await cache.del("offers:list");
+  await cache.delPattern("offers:search:*");
   return json({ ok: true, offer: publicOffer(offer) });
 }

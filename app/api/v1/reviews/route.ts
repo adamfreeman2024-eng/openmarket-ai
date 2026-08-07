@@ -3,6 +3,7 @@ import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { addReview, getReviewStats } from "@/lib/reputation-v2";
+import { cache } from "@/lib/cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +76,9 @@ export async function POST(req: NextRequest) {
     rating,
     comment,
   });
+
+  // Reviews feed into search ranking (review-quality boost) — invalidate cached results.
+  await cache.delPattern("offers:search:*");
 
   return json({
     ok: true,

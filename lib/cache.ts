@@ -51,6 +51,15 @@ try {
   log.warn({ err: e instanceof Error ? e.message : String(e) }, "Redis init failed, using memory cache");
 }
 
+/**
+ * Stable cache key from URLSearchParams — sorted so param order doesn't matter
+ * (e.g. ?q=x&limit=5 === ?limit=5&q=x share one cache entry).
+ */
+export function searchCacheKey(prefix: string, sp: URLSearchParams): string {
+  const entries = [...sp.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  return `${prefix}:${entries.map(([k, v]) => `${k}=${v}`).join("&")}`;
+}
+
 export const cache = {
   async get<T>(key: string): Promise<T | null> {
     try {
