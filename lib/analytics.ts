@@ -226,6 +226,10 @@ export type AgentAnalytics = {
   capabilities: string[];
   offers: { id: string; capability: string; price: number; active: boolean }[];
   recentOrders: { id: string; status: string; amount: number; capability: string; createdAt: string }[];
+  /** Daily completed revenue for the last 30 days (chart source). */
+  dailyRevenue: { date: string; revenue: number }[];
+  /** Most recent failed orders with error messages (debug feed). */
+  errorFeed: { id: string; error: string; createdAt: string }[];
 };
 
 export async function getAgentAnalytics(agentId: string): Promise<AgentAnalytics | null> {
@@ -242,6 +246,32 @@ export async function getAgentAnalytics(agentId: string): Promise<AgentAnalytics
 
   const agentOffers = db.listOffers().filter((o) => o.agentId === agentId);
   const offerCache = new Map(agentOffers.map((o) => [o.id, o]));
+
+  // Daily completed revenue — last 30 days (chart source). Deterministic,
+  // no external deps; empty days are zero-filled so the chart is stable.
+  const dailyRevenue: { date: string; revenue: number }[] = [];
+  try {
+    const byDay = new Map<string, number>();
+    for (const o of completed) {
+      const d = o.completedAt || o.createdAt;
+      const day = d ? d.slice(0, 10) : "unknown";
+      byDay.set(day, (byDay.get(day) || 0) + (o.totalAmount || 0));
+    }
+    const now = new Date();
+    for (let i = 29; i >= 0; i--) {
+      const day = new Date(now.getTime() - i * 86_400_000).toISOString().slice(0, 10);
+      dailyRevenue.push({ date: day, revenue: Math.round((byDay.get(day) || 0) * 100) / 100 });
+    }
+  } catch {
+    // chart data is best-effort — never break the endpoint
+  }
+
+  // Error feed — most recent failed orders with messages (debug).
+  const errorFeed = allOrders
+    .filter((o) => o.status === "failed" && o.error)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 10)
+    .map((o) => ({ id: o.id, error: o.error as string, createdAt: o.createdAt }));
 
   return {
     agentId,
@@ -279,5 +309,7 @@ export async function getAgentAnalytics(agentId: string): Promise<AgentAnalytics
           createdAt: o.createdAt,
         };
       }),
+    dailyRevenue,
+    errorFeed,
   };
 }
