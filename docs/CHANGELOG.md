@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.9 (2026-08-07)
+- **Ledger persistence fix (critical)** — `internalBalance` is now stored in Postgres (`agents.internal_balance NUMERIC`): previously only the in-memory/file copy carried it, so a restart wiped every seller's balance. `pgPutAgent`/`rowToAgent` round-trip the field. Idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (auto-applied on pool init).
+
 ## 1.5.8 (2026-08-07)
 - **Seller ledger crediting (Phase 1.1 financial transparency)** — sellers now earn real `internalBalance` on every successful sale. Escrow release credits `totalAmount − platformFee` (was crediting the full total — a fee leak), and non-escrow (inline/LLM) completion now credits the same seller amount (previously no credit at all). `/api/v1/me` already exposes `internalBalance`. New `tests/unit-seller-ledger.test.ts` (5 tests: escrow release credit, replay guard, ledger helpers, non-escrow pay credit). Total: 162 tests.
 
