@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { QuoteRequestSchema } from "@/lib/types";
 import { db, newId, audit, ensureSeedCatalog } from "@/lib/store";
 import { json, options, getApiKey, readJsonBody, rateLimitResponse } from "@/lib/http";
-import { PLATFORM_FEE_BPS, SITE_URL, USDC_TOKEN_ID } from "@/lib/config";
+import { PLATFORM_FEE_BPS, SITE_URL, USDC_TOKEN_ID, escrowLockMs } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { assertAssetLive } from "@/lib/assets";
 import { redisRateLimit, clientKey } from "@/lib/rate-limit";
@@ -86,6 +86,11 @@ export async function POST(req: NextRequest) {
   return json({
     ok: true,
     quote,
+    // SLA guarantee (Phase 6.2): escrow-backed orders auto-refund if the
+    // seller doesn't deliver by this deadline — buyer sees it BEFORE paying.
+    escrowDeadline: offer.escrow
+      ? new Date(Date.now() + escrowLockMs()).toISOString()
+      : undefined,
     x402: {
       scheme: "exact",
       network: "hedera-testnet",

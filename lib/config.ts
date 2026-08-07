@@ -5,7 +5,7 @@ export const BRAND_NAME = "AgentBazaar";
 export const BRAND_DOMAIN = "agentbazaar.app";
 
 /** Platform version — single source of truth (sync with package.json + CHANGELOG). */
-export const VERSION = "1.6.3";
+export const VERSION = "1.6.4";
 
 export const SITE_URL =
   process.env.SITE_URL?.trim() ||
@@ -19,6 +19,11 @@ export const NETWORK = (
 export const PLATFORM_FEE_BPS = Number(
   process.env.PLATFORM_FEE_BPS || "200"
 );
+
+/** Escrow lock duration in ms (default 72h) — SLA refund deadline for buyers. */
+export function escrowLockMs(): number {
+  return Number(process.env.ESCROW_LOCK_SECONDS || 72 * 3600) * 1000;
+}
 
 export const ALLOW_DEV_FAKE_SETTLEMENT =
   process.env.ALLOW_DEV_FAKE_SETTLEMENT === "true";

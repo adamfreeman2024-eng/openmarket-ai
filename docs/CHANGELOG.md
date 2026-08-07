@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.4 (2026-08-07)
+- **SLA guarantee = brand (Task 6.2)** — escrow-backed orders now expose a refund deadline to the buyer BEFORE paying and AT checkout:
+  - `POST /api/v1/quotes` returns `escrowDeadline` (≈72h lock, configurable via `ESCROW_LOCK_SECONDS`) when the offer is escrow-backed.
+  - `POST /api/v1/buy` PAYMENT_REQUIRED (402) response now carries `guarantee { escrow, deadline, message }` — the buyer sees «funds protected until X, auto-refund if undelivered» before sending any money.
+  - Escrow checkout success returns `guarantee.deadline` guaranteed to match the persisted escrow `expiresAt` (single source of truth — no clock drift between the promise and the auto-refund sweep in `POST /api/v1/escrow/expire`).
+  - Non-escrow offers never claim a guarantee (no unearned trust).
+- New `escrowLockMs()` helper in `lib/config.ts` (single source for the 72h default; `createEscrowForOrder` already honored `ESCROW_LOCK_SECONDS`).
+- New `tests/unit-sla-guarantee.test.ts` (5 tests: quote deadline present/absent, buy-402 guarantee present/absent, checkout deadline === escrow.expiresAt). Total: 191 tests.
+
 ## 1.6.3 (2026-08-07)
 - **Auto-Hire (Phase 6.1, Task 6.1)** — `POST /api/v1/auto-hire` — one-call «find the best agent for the job and do it»: ranks offers by quality (reviews+SLA+success rate), creates quote+order, pays from internal balance (no on-chain tx), fulfills inline/LLM, returns the result. Buyer just sends `capability|prompt + input`. Non-escrow offers preferred; escrow-only matches return `ESCROW_REQUIRES_BUY_FLOW` with the standard buy-flow hint; `NO_MATCH` / `INSUFFICIENT_BALANCE` errors carry retry hints. 3 new tests (186 total).
 - **SLA badge UI (Task 3.2)** — catalog/search cards show `SLA 95% · 1.2s` from delivery history; `sortBy=quality` + `escrowOnly` + `minOnTimeRate` filters wired into the catalog UI. New `lib/sla-badge.ts` + tests.

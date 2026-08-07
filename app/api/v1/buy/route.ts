@@ -8,7 +8,7 @@ import {
   createEscrowForOrder,
 } from "@/lib/settlement";
 import { buildOnChainDepositPlan, isEscrowContractLive } from "@/lib/onchain-escrow";
-import { PLATFORM_FEE_BPS, ESCROW_CONTRACT_ADDRESS } from "@/lib/config";
+import { PLATFORM_FEE_BPS, ESCROW_CONTRACT_ADDRESS, escrowLockMs } from "@/lib/config";
 import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
 import { notify } from "@/lib/notifications";
@@ -143,6 +143,15 @@ export async function POST(req: NextRequest) {
           payTo,
           memo: `openmarket:${quote.id}:${order.id}`,
         },
+        // SLA guarantee (Phase 6.2): escrow-backed orders auto-refund if the
+        // seller doesn't deliver by the deadline — buyer sees this BEFORE paying.
+        guarantee: offer.escrow
+          ? {
+              escrow: true,
+              deadline: new Date(Date.now() + escrowLockMs()).toISOString(),
+              message: `Your funds are protected by escrow until this deadline. If the seller does not deliver by then, the full amount is automatically refunded.`,
+            }
+          : undefined,
         retry: {
           method: "POST",
           path: "/api/v1/buy",
@@ -223,6 +232,13 @@ export async function POST(req: NextRequest) {
       ok: true,
       order,
       escrow,
+      // SLA guarantee (Phase 6.2): funds auto-refund if seller doesn't
+      // deliver by this deadline — buyer sees the guarantee at checkout.
+      guarantee: {
+        escrow: true,
+        deadline: escrow.expiresAt,
+        message: `Your funds are protected by escrow until ${escrow.expiresAt}. If the seller does not deliver by then, the full amount is automatically refunded.`,
+      },
       settlementMode: v.mode,
       onChainEscrow: onChain,
       contractLive: isEscrowContractLive(),
