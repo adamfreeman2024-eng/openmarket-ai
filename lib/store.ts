@@ -14,6 +14,7 @@ import type {
   WebhookDeliveryLog,
 } from "./types";
 import type { EscrowRecord } from "./store-types";
+import { normalizeTxId } from "./tx-id";
 import {
   hasDatabaseUrl,
 } from "./pg-store";
@@ -347,9 +348,6 @@ export const db = {
   },
   isTxUsed(tx: string) {
     // lazy import avoided — use shared helper
-    const { normalizeTxId } = require("./tx-id") as {
-      normalizeTxId: (s: string) => string;
-    };
     const n = normalizeTxId(tx);
     return store().usedTx.has(tx) || store().usedTx.has(n);
   },
@@ -358,9 +356,6 @@ export const db = {
    * Returns true only the first time this tx is claimed.
    */
   claimTxUsed(tx: string): boolean {
-    const { normalizeTxId } = require("./tx-id") as {
-      normalizeTxId: (s: string) => string;
-    };
     const n = normalizeTxId(tx);
     const s = store();
     if (s.usedTx.has(tx) || s.usedTx.has(n)) return false;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.1 (2026-08-07)
+- **Deposit on-chain verification (Task 2.2, security fix)** — `POST /api/v1/deposit` with strict settlement now VERIFIES the transaction on the mirror node (SUCCESS + credits operator treasury with ≥ amount) before crediting the internal balance; replay protection via `claimTxUsed`. Previously any random `txId` credited funds — a real funding gap. `mode: "mirror_verified"`. New tests: no-txId → 402, verified deposit → balance +5 (total 9). Also replaced store's lazy `require("./tx-id")` with a top-level import (fixes vitest module resolution).
+- Total: 169 tests (23 files).
+
 ## 1.6.0 (2026-08-07)
 - **Internal balance = default payment path (Phase 2.1)** — a registered buyer with sufficient `internalBalance` now buys WITHOUT an on-chain transaction (`POST /api/v1/buy` debits the ledger, order completes instantly, `transactionId: "internal:..."`). No Hedera wallet knowledge needed. Escrow offers still use the on-chain escrow flow. Fixed a stale-buyer-overwrite bug found by tests (completed stats reload fresh agent so the debit isn't clobbered). New test: buy with balance (10 → 9.49 spent, seller 0.50 earned).
 - **Search filters (Phase 3.1)** — `GET /api/v1/offers/search` gains `escrowOnly=1`, `minOnTimeRate` (SLA filter), `sortBy=quality` (composite of reviews + SLA + success rate via new `qualityScore`), and returns `seller.sla` (onTimeRate/avgLatencyMs) per result. New `tests/unit-ranking.test.ts` cases (escrowOnly, SLA filter, quality sort).

@@ -355,6 +355,39 @@ describe("buy with internal balance (Phase 2.1)", () => {
   });
 });
 
+describe("deposit on-chain verification (Task 2.2)", () => {
+  it("rejects deposit without txId in strict mode (402)", async () => {
+    // ALLOW_DEV_FAKE_SETTLEMENT is false in this environment → mainnet path.
+    const { POST } = await import("../app/api/v1/deposit/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/deposit", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { amount: 5, asset: "usdc" },
+      })
+    );
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error).toBe("MAINNET_DEPOSIT_REQUIRES_TX");
+  });
+
+  it("credits balance after mirror-verified deposit", async () => {
+    // settlement.verifyPayment is mocked to {ok:true} in this suite.
+    const { POST } = await import("../app/api/v1/deposit/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/deposit", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { amount: 5, asset: "usdc", txId: "0.0.9002@1786.456" },
+      })
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.mode).toBe("mirror_verified");
+    expect(body.balance).toBeCloseTo(14.49, 4); // 9.49 (prev test) + 5
+  });
+});
+
 describe("GET /api/v1/me — financial transparency (Task 1.2)", () => {
   it("exposes balance, earnedTotal (net) and sellerAmount on sell orders", async () => {
     const { GET } = await import("../app/api/v1/me/route");

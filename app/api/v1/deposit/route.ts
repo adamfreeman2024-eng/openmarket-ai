@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { ensureSeedCatalog, audit } from "@/lib/store";
+import { ensureSeedCatalog, db, audit } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { redisRateLimit, clientKey, rateLimitResponse } from "@/lib/rate-limit";
 import { creditAgent, getBalance } from "@/lib/agent-ledger";
 import { ALLOW_DEV_FAKE_SETTLEMENT } from "@/lib/config";
+import { verifyPayment } from "@/lib/settlement";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,9 +24,11 @@ const DepositSchema = z.object({
  * Deposit — top up your internal ledger balance.
  * POST /api/v1/deposit { amount, asset?, txId? }
  *
- * NB: On testnet, deposits credit instantly for demo/hackathon purposes
- * (guarded by ALLOW_DEV_FAKE_SETTLEMENT). On mainnet this will require a
- * real HBAR/USDC transfer to the operator account and on-chain verification.
+ * Security: on-chain deposits (ALLOW_DEV_FAKE_SETTLEMENT=false) VERIFY the
+ * transaction on the mirror node — the tx must be SUCCESS and credit the
+ * operator treasury (HEDERA_OPERATOR_ID) with >= amount. A random txId does
+ * not credit anything (previously it did — a real funding gap).
+ * Replay protection via claimTxUsed.
  */
 export async function POST(req: NextRequest) {
   ensureSeedCatalog();
@@ -43,11 +46,28 @@ export async function POST(req: NextRequest) {
   const d = parsed.data;
 
   const isTestnetDeposit = ALLOW_DEV_FAKE_SETTLEMENT === true;
-  if (!isTestnetDeposit && !d.txId) {
-    return json(
-      { ok: false, error: "MAINNET_DEPOSIT_REQUIRES_TX", message: "Real deposits need an on-chain transaction ID" },
-      402
-    );
+  if (!isTestnetDeposit) {
+    if (!d.txId) {
+      return json(
+        { ok: false, error: "MAINNET_DEPOSIT_REQUIRES_TX", message: "Real deposits need an on-chain transaction ID" },
+        402
+      );
+    }
+    // On-chain verification: tx must credit the operator treasury with >= amount.
+    const payTo = process.env.HEDERA_OPERATOR_ID?.trim() || "0.0.OPERATOR_CONFIGURE_ME";
+    const v = await verifyPayment({
+      transactionId: d.txId,
+      expectedPayTo: payTo,
+      expectedAmount: d.amount,
+      asset: d.asset === "usdc" ? "USDC" : "HBAR",
+    });
+    if (!v.ok) {
+      return json({ ok: false, error: v.error, mode: v.mode, details: v.details }, 400);
+    }
+    const claimed = db.claimTxUsed(d.txId);
+    if (!claimed) {
+      return json({ ok: false, error: "TRANSACTION_ALREADY_USED", mode: "replay" }, 409);
+    }
   }
 
   const updated = creditAgent(agent.id, d.amount, `deposit:${d.asset}${d.txId ? ":" + d.txId : ""}`);
@@ -59,7 +79,7 @@ export async function POST(req: NextRequest) {
     {
       ok: true,
       balance: getBalance(updated),
-      mode: isTestnetDeposit ? "testnet_instant" : "pending_verification",
+      mode: isTestnetDeposit ? "testnet_instant" : "mirror_verified",
     },
     201
   );
