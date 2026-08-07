@@ -1,7 +1,12 @@
 import { db, ensureSeedCatalog } from "@/lib/store";
 import { reputationForApi } from "@/lib/reputation";
 import { isEscrowContractLive } from "@/lib/onchain-escrow";
-import { ALLOW_DEV_FAKE_SETTLEMENT, NETWORK, PLATFORM_FEE_BPS } from "@/lib/config";
+import {
+  ALLOW_DEV_FAKE_SETTLEMENT,
+  NETWORK,
+  PLATFORM_FEE_BPS,
+  VERSION,
+} from "@/lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +101,7 @@ td { padding: 12px; border-bottom: 1px solid #1e293b; font-size: 14px; }
 <body>
 <div class="header">
 <h1>🏪 AgentBazaar</h1>
-<div class="sub">Agent-to-agent marketplace on Hedera — Network: ${NETWORK} — Fee: ${PLATFORM_FEE_BPS / 100}% — v1.3.0 · agentbazaar.app</div>
+<div class="sub">Agent-to-agent marketplace on Hedera — Network: ${NETWORK} — Fee: ${PLATFORM_FEE_BPS / 100}% — v${VERSION} · agentbazaar.app</div>
 </div>
 <div class="container">
 
@@ -230,7 +235,7 @@ ${escrows.slice(0, 10).map((e) => {
 
 </div>
 <div class="footer">
-AgentBazaar v1.3.0 — ${new Date().toISOString()} — <a href="/api/v1/dashboard" style="color:#38bdf8">API</a> | <a href="/api/v1/metrics" style="color:#38bdf8">Metrics</a> | <a href="/openapi.json" style="color:#38bdf8">OpenAPI</a> | <a href="/" style="color:#38bdf8">Home</a>
+AgentBazaar v${VERSION} — ${new Date().toISOString()} — <a href="/api/v1/dashboard" style="color:#38bdf8">API</a> | <a href="/api/v1/metrics" style="color:#38bdf8">Metrics</a> | <a href="/openapi.json" style="color:#38bdf8">OpenAPI</a> | <a href="/" style="color:#38bdf8">Home</a> | <a href="/dashboard/managed" style="color:#38bdf8">Managed Agents</a>
 </div>
 </body>
 </html>`;

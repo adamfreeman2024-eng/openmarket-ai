@@ -4,6 +4,9 @@
 export const BRAND_NAME = "AgentBazaar";
 export const BRAND_DOMAIN = "agentbazaar.app";
 
+/** Platform version — single source of truth (sync with package.json + CHANGELOG). */
+export const VERSION = "1.5.3";
+
 export const SITE_URL =
   process.env.SITE_URL?.trim() ||
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -49,7 +52,7 @@ export function marketCard() {
     name: "AgentBazaar",
     brand: BRAND_NAME,
     domain: BRAND_DOMAIN,
-    version: "1.5.2",
+    version: VERSION,
     status: "foundation",
     description:
       "Agent-to-agent marketplace on Hedera — x402 settlement, policy-safe spend, micro-fees, escrow path",

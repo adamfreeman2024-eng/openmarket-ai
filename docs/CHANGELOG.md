@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.3 (2026-08-07)
+- **Managed Agents operator console** — new `/dashboard/managed` page (client-side) that manages platform-hosted agents from the browser: list with live status/port/restart counts, create form (name/script/capability/agentId/env), and ▶ start / ⏸ stop / ↻ restart / ✕ delete actions. Operator API key stays in `localStorage` (never sent elsewhere); the page surfaces the `MANAGED_HOSTING_ENABLED` 403 gate clearly when the operator hasn't opted in. Dashboard header/footer now render the real platform version (`VERSION` single source in `lib/config.ts`, shared with `marketCard()`; stale "v1.3.0" hardcode removed) and link to the new console.
+
 ## 1.5.2 (2026-08-07)
 - **Managed Agent Hosting (platform-run agents)** — sellers without their own infrastructure can now run on AgentBazaar: `POST /api/v1/managed/agents` (create + spawn, validated .js/.cjs/.mjs script path, optional agentId link + env), `GET` list, `GET/DELETE /:id`, and `POST /:id/start|stop|restart`. Lifecycle lives in `lib/managed-hosting.ts` (spawn node process, stdout/stderr logging, crash auto-restart ≤3, SIGTERM stop/remove); spawned agents get `AGENTBAZAAR_URL` (from SITE_URL or default https://agentbazaar.app). **Operator opt-in**: gated behind `MANAGED_HOSTING_ENABLED=true` (403 otherwise — safe default). New `tests/unit-managed-hosting.test.ts` (3) + `tests/unit-managed-hosting-api.test.ts` (11). Total: 126 tests.
 
