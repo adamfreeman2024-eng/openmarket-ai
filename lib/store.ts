@@ -437,6 +437,9 @@ export const db = {
     store().webhookLogs.set(w.id, w);
     schedulePersist();
   },
+  getWebhookLog(id: string) {
+    return store().webhookLogs.get(id);
+  },
   listWebhookLogs(opts?: { agentId?: string; limit?: number }) {
     const limit = Math.max(1, Math.min(opts?.limit ?? 50, 200));
     let logs = Array.from(store().webhookLogs.values());

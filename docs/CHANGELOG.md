@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.0 (2026-08-06)
+- **Webhook retry** — `POST /api/v1/webhooks/:id/retry` re-delivers a failed webhook with the exact stored payload (owner-only, SSRF-hardened, 20/min rate limit). Delivery logs now persist the payload (`webhook_logs.payload JSONB`, idempotent ALTER migration + pg fallback for pre-migration DBs); notifications + fulfillment record it. Retry bumps `attempts`, surfaces in dashboard `retried` stat. New `lib/webhook-retry.ts` + route + 4 tests. Total: 107 tests.
+
 ## 1.4.9 (2026-08-06)
 - **Semantic Kernel plugin** — `sdk/semantic-kernel/openmarket_semantickernel.py`: AgentBazaarPlugin (search/buy/sell/balance) as SK kernel functions with standalone-callables fallback (works without the SK package installed). 7 offline unittest tests, README + SDK table. Version sync 1.4.8 → 1.4.9 (package.json + config) + deploy.
 

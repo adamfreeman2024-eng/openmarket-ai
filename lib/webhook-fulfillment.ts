@@ -22,9 +22,17 @@ export async function callWebhookForFulfillment(opts: {
   const maxSeconds = Math.min(Math.max(opts.maxSeconds ?? 30, 1), 60);
   const t0 = Date.now();
 
+  const payload = {
+    orderId,
+    offerId,
+    capability,
+    input: input || {},
+    timestamp: new Date().toISOString(),
+  };
+
   const safe = await assertSafeOutboundUrl(webhookUrl);
   if (safe.ok === false) {
-    recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook URL blocked: ${safe.error}`, latencyMs: 0 });
+    recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook URL blocked: ${safe.error}`, latencyMs: 0, payload });
     return { ok: false, error: `Webhook URL blocked: ${safe.error}`, latencyMs: 0 };
   }
 
@@ -32,13 +40,7 @@ export async function callWebhookForFulfillment(opts: {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), maxSeconds * 1000);
 
-    const body = JSON.stringify({
-      orderId,
-      offerId,
-      capability,
-      input: input || {},
-      timestamp: new Date().toISOString(),
-    });
+    const body = JSON.stringify(payload);
 
     const response = await fetch(safe.url.toString(), {
       method: "POST",
@@ -58,7 +60,7 @@ export async function callWebhookForFulfillment(opts: {
     const latencyMs = Date.now() - t0;
 
     if (!response.ok) {
-      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook returned HTTP ${response.status}`, latencyMs, status: response.status });
+      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook returned HTTP ${response.status}`, latencyMs, status: response.status, payload });
       return {
         ok: false,
         error: `Webhook returned HTTP ${response.status}`,
@@ -74,22 +76,22 @@ export async function callWebhookForFulfillment(opts: {
     } else {
       const text = await response.text();
       if (text.length > 200_000) {
-        recordDelivery({ webhookUrl, offerId, ok: false, error: "Webhook response too large", latencyMs });
+        recordDelivery({ webhookUrl, offerId, ok: false, error: "Webhook response too large", latencyMs, payload });
         return { ok: false, error: "Webhook response too large", latencyMs };
       }
       result = text;
     }
 
-    recordDelivery({ webhookUrl, offerId, ok: true, latencyMs, status: response.status });
+    recordDelivery({ webhookUrl, offerId, ok: true, latencyMs, status: response.status, payload });
     return { ok: true, result, latencyMs };
   } catch (e) {
     const latencyMs = Date.now() - t0;
     if (e instanceof Error && e.name === "AbortError") {
-      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook timeout after ${maxSeconds}s`, latencyMs });
+      recordDelivery({ webhookUrl, offerId, ok: false, error: `Webhook timeout after ${maxSeconds}s`, latencyMs, payload });
       return { ok: false, error: `Webhook timeout after ${maxSeconds}s`, latencyMs };
     }
     const errMsg = e instanceof Error ? e.message : "Webhook call failed";
-    recordDelivery({ webhookUrl, offerId, ok: false, error: errMsg, latencyMs });
+    recordDelivery({ webhookUrl, offerId, ok: false, error: errMsg, latencyMs, payload });
     return {
       ok: false,
       error: errMsg,
@@ -109,6 +111,7 @@ function recordDelivery(info: {
   error?: string;
   latencyMs: number;
   status?: number;
+  payload?: Record<string, unknown>;
 }) {
   try {
     let agentId = "unknown";
@@ -128,6 +131,7 @@ function recordDelivery(info: {
       attempts: 1,
       durationMs: info.latencyMs,
       createdAt: new Date().toISOString(),
+      payload: info.payload,
     });
   } catch {
     // Logging must never break fulfillment — silently skip on failure.

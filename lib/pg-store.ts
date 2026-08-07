@@ -141,8 +141,12 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
   error TEXT,
   attempts INT NOT NULL DEFAULT 1,
   duration_ms INT NOT NULL DEFAULT 0,
+  payload JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migration: payload column for identical webhook retries (idempotent; safe on existing DBs)
+ALTER TABLE webhook_logs ADD COLUMN IF NOT EXISTS payload JSONB;
 
 CREATE INDEX IF NOT EXISTS audit_at_idx ON audit_events(at DESC);
 CREATE INDEX IF NOT EXISTS escrows_order_idx ON escrows(order_id);
@@ -425,34 +429,68 @@ export async function pgMarkNotificationsRead(agentId: string): Promise<void> {
 
 export async function pgPutWebhookLog(w: WebhookDeliveryLog): Promise<void> {
   const p = await getPool();
-  await p.query(
-    `INSERT INTO webhook_logs (id, agent_id, event, url, ok, status, error, attempts, duration_ms, created_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     ON CONFLICT (id) DO UPDATE SET
-       ok = EXCLUDED.ok,
-       status = EXCLUDED.status,
-       error = EXCLUDED.error,
-       attempts = EXCLUDED.attempts,
-       duration_ms = EXCLUDED.duration_ms`,
-    [
-      w.id,
-      w.agentId,
-      w.event,
-      w.url,
-      w.ok,
-      w.status ?? null,
-      w.error ?? null,
-      w.attempts,
-      w.durationMs,
-      w.createdAt,
-    ]
-  );
+  try {
+    await p.query(
+      `INSERT INTO webhook_logs (id, agent_id, event, url, ok, status, error, attempts, duration_ms, payload, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (id) DO UPDATE SET
+         ok = EXCLUDED.ok,
+         status = EXCLUDED.status,
+         error = EXCLUDED.error,
+         attempts = EXCLUDED.attempts,
+         duration_ms = EXCLUDED.duration_ms,
+         payload = EXCLUDED.payload`,
+      [
+        w.id,
+        w.agentId,
+        w.event,
+        w.url,
+        w.ok,
+        w.status ?? null,
+        w.error ?? null,
+        w.attempts,
+        w.durationMs,
+        w.payload ? JSON.stringify(w.payload) : null,
+        w.createdAt,
+      ]
+    );
+  } catch (e) {
+    // Fallback for pre-migration DBs without the payload column: retry without payload.
+    // Never let webhook log persistence break the caller.
+    try {
+      await p.query(
+        `INSERT INTO webhook_logs (id, agent_id, event, url, ok, status, error, attempts, duration_ms, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (id) DO UPDATE SET
+           ok = EXCLUDED.ok,
+           status = EXCLUDED.status,
+           error = EXCLUDED.error,
+           attempts = EXCLUDED.attempts,
+           duration_ms = EXCLUDED.duration_ms`,
+        [
+          w.id,
+          w.agentId,
+          w.event,
+          w.url,
+          w.ok,
+          w.status ?? null,
+          w.error ?? null,
+          w.attempts,
+          w.durationMs,
+          w.createdAt,
+        ]
+      );
+    } catch (inner) {
+      console.error("[pg-store] pgPutWebhookLog failed (both paths)", inner);
+      throw e;
+    }
+  }
 }
 
 export async function pgListWebhookLogs(limit = 200): Promise<WebhookDeliveryLog[]> {
   const p = await getPool();
   const r = await p.query(
-    `SELECT id, agent_id, event, url, ok, status, error, attempts, duration_ms, created_at
+    `SELECT id, agent_id, event, url, ok, status, error, attempts, duration_ms, payload, created_at
      FROM webhook_logs ORDER BY created_at DESC LIMIT $1`,
     [limit]
   );
@@ -466,6 +504,7 @@ export async function pgListWebhookLogs(limit = 200): Promise<WebhookDeliveryLog
     error: (row.error as string | null) ?? undefined,
     attempts: Number(row.attempts),
     durationMs: Number(row.duration_ms),
+    payload: (row.payload as Record<string, unknown> | null) ?? undefined,
     createdAt: new Date(row.created_at as string).toISOString(),
   }));
 }

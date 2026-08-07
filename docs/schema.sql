@@ -102,8 +102,12 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
   error TEXT,
   attempts INT NOT NULL DEFAULT 1,
   duration_ms INT NOT NULL DEFAULT 0,
+  payload JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migration: payload column for identical webhook retries (idempotent; safe on existing DBs)
+ALTER TABLE webhook_logs ADD COLUMN IF NOT EXISTS payload JSONB;
 
 CREATE INDEX IF NOT EXISTS webhook_logs_agent_idx ON webhook_logs(agent_id, created_at DESC);
 

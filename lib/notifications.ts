@@ -134,12 +134,13 @@ export const notify = {
 
     // Webhook (if configured) — record durable delivery log (retry-aware, never throws)
     if (agent.webhookUrl) {
+      const payload = {
+        event,
+        agentId,
+        ...data,
+      };
       promises.push(
-        sendWebhook(agent.webhookUrl, {
-          event,
-          agentId,
-          ...data,
-        }).then(async (res) => {
+        sendWebhook(agent.webhookUrl, payload).then(async (res) => {
           try {
             const logRecord: WebhookDeliveryLog = {
               id: newId("whk"),
@@ -152,6 +153,7 @@ export const notify = {
               attempts: 1,
               durationMs: res.durationMs,
               createdAt: new Date().toISOString(),
+              payload,
             };
             db.putWebhookLog(logRecord);
           } catch (e) {

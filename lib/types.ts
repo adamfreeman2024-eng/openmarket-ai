@@ -89,6 +89,8 @@ export type WebhookDeliveryLog = {
   attempts: number;
   durationMs: number;
   createdAt: string;
+  /** Exact payload sent on the last attempt — enables identical retry. */
+  payload?: Record<string, unknown>;
 };
 
 export type AgentRecord = {
