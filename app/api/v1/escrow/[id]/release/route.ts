@@ -99,6 +99,10 @@ export async function POST(
       onChain: onChainResult,
     };
     order.completedAt = new Date().toISOString();
+    // Seller net after platform fee — surfaced on the order record.
+    order.sellerAmount = Number(
+      ((order.totalAmount || escrow.amount || 0) - (order.platformFee || 0)).toFixed(8)
+    );
     db.putOrder(order);
     const seller = db.getAgent(escrow.sellerAgentId);
     if (seller) {

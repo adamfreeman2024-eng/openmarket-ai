@@ -195,6 +195,8 @@ export type OrderRecord = {
   buyerWallet?: string;
   totalAmount: number;
   platformFee: number;
+  /** Seller net after platform fee (total − fee) — set on completion. */
+  sellerAmount?: number;
   priceAsset: "HBAR" | "USDC";
   status: OrderStatus;
   transactionId?: string;

@@ -36,10 +36,20 @@ export async function GET(req: NextRequest) {
   const failedSales = sellOrders.filter((o) => o.status === "failed");
 
   const revenueByAsset: Record<string, number> = {};
+  const netByAsset: Record<string, number> = {};
+  let earnedTotal = 0;
   for (const o of completedSales) {
     const asset = o.priceAsset || "HBAR";
     revenueByAsset[asset] = (revenueByAsset[asset] || 0) + (o.totalAmount || 0);
+    // Seller net after platform fee (total − fee); falls back to total−fee
+    const net =
+      typeof o.sellerAmount === "number"
+        ? o.sellerAmount
+        : Number(((o.totalAmount || 0) - (o.platformFee || 0)).toFixed(8));
+    netByAsset[asset] = (netByAsset[asset] || 0) + net;
+    earnedTotal += net;
   }
+  earnedTotal = Number(earnedTotal.toFixed(8));
 
   const spentByAsset: Record<string, number> = {};
   for (const o of completedBuys) {
@@ -69,6 +79,8 @@ export async function GET(req: NextRequest) {
       id: o.id,
       status: o.status,
       totalAmount: o.totalAmount,
+      sellerAmount:
+        typeof o.sellerAmount === "number" ? o.sellerAmount : undefined,
       priceAsset: o.priceAsset,
       offerId: o.offerId,
       buyerAgentId: o.buyerAgentId,
@@ -134,8 +146,10 @@ export async function GET(req: NextRequest) {
     },
     revenue: {
       byAsset: revenueByAsset,
+      netByAsset,
+      earnedTotal,
       spentByAsset,
-      note: "Amounts in human units (HBAR or USDC)",
+      note: "Amounts in human units (HBAR or USDC). earnedTotal = seller net after platform fee.",
     },
     settlement: {
       usdcLive: Boolean(USDC_TOKEN_ID),

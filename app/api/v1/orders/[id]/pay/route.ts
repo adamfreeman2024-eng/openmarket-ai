@@ -167,6 +167,9 @@ export async function POST(
     live.result = result;
     live.completedAt = new Date().toISOString();
     live.latencyMs = latencyMs;
+    live.sellerAmount = Number(
+      ((live.totalAmount || 0) - (live.platformFee || 0)).toFixed(8)
+    );
     db.putOrder(live);
 
     const seller = db.getAgent(live.sellerAgentId);

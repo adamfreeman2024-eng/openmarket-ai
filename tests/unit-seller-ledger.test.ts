@@ -154,6 +154,7 @@ describe("escrow release credits seller amount (total − fee)", () => {
     const body = await res.json();
     expect(body.escrow.status).toBe("released");
     expect(body.order.status).toBe("completed");
+    expect(body.order.sellerAmount).toBeCloseTo(2.0, 6); // total − fee on the order
 
     const seller = db.getAgent("agt_seller");
     expect(seller?.internalBalance).toBeCloseTo(2.0, 6); // 2.04 − 0.04 fee
@@ -273,5 +274,39 @@ describe("non-escrow pay credits seller (inline/LLM completion)", () => {
     const seller = db.getAgent("agt_seller");
     // seller already got 2.0 from the escrow-release test; echo adds 0.50
     expect(seller?.internalBalance).toBeCloseTo(2.5, 6);
+  });
+});
+
+describe("GET /api/v1/me — financial transparency (Task 1.2)", () => {
+  it("exposes balance, earnedTotal (net) and sellerAmount on sell orders", async () => {
+    const { GET } = await import("../app/api/v1/me/route");
+    const res = await GET(
+      req("https://agentbazaar.app/api/v1/me", { key: SELLER_KEY })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Seller balance — 2.0 (escrow release) + 0.50 (inline pay)
+    expect(body.agent.internalBalance).toBeCloseTo(2.5, 6);
+
+    // Earned = seller net after platform fee, across completed sales
+    expect(body.revenue.earnedTotal).toBeCloseTo(2.5, 6);
+    expect(body.revenue.netByAsset.USDC).toBeCloseTo(2.5, 6);
+    // Gross revenue counts the full total paid by buyers
+    expect(body.revenue.byAsset.USDC).toBeCloseTo(2.55, 6);
+
+    // Recent sell orders carry sellerAmount (= total − fee) on each record
+    const sellOrders = body.recentSellOrders as Array<{
+      id: string;
+      sellerAmount?: number;
+    }>;
+    expect(sellOrders.length).toBeGreaterThanOrEqual(2);
+    const sellerAmounts = sellOrders
+      .filter((o) => typeof o.sellerAmount === "number")
+      .map((o) => o.sellerAmount as number);
+    const totalNet = Number(
+      sellerAmounts.reduce((s, a) => s + a, 0).toFixed(6)
+    );
+    expect(totalNet).toBeCloseTo(2.5, 6);
   });
 });
