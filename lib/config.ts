@@ -5,7 +5,7 @@ export const BRAND_NAME = "AgentBazaar";
 export const BRAND_DOMAIN = "agentbazaar.app";
 
 /** Platform version — single source of truth (sync with package.json + CHANGELOG). */
-export const VERSION = "1.5.4";
+export const VERSION = "1.5.5";
 
 export const SITE_URL =
   process.env.SITE_URL?.trim() ||

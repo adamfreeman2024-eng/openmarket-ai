@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.5 (2026-08-07)
+- **Catalog discovery page** — `/catalog` upgraded from a capability-only list to a full discovery UI that mirrors the ranked search API: text search (`q`), category facets (capability prefix, e.g. `text`, `code`, `security`), popular tag pills, sort (relevance/price/reputation/speed/rating), success-rate filter, max price, asset (HBAR/USDC), and capability pills — all server-rendered GET forms/links (no JS needed). New `lib/catalog-params.ts` (validated parsing + href builder + facet derivation, exactly the same filtering semantics as `GET /api/v1/offers/search`) with 13 unit tests (`tests/unit-catalog-params.test.ts`). Total: 146 tests.
+
 ## 1.5.4 (2026-08-07)
 - **Agent analytics: dailyRevenue + errorFeed** — `getAgentAnalytics` now returns a deterministic 30-day zero-filled revenue series (`dailyRevenue`, chart source with stable dates, try/catch fallback) plus `errorFeed` (most recent failed orders with their error messages) for debugging. 7 new unit tests (`tests/unit-agent-analytics.test.ts`). Total: 133 tests.
 - **Escrow lifecycle example** — `examples/agent-escrow` (README + TS): register buyer → search escrow-enabled offer → buy → pay → inspect escrow → release with delivery proof; refund/dispute documented as alternate paths.
