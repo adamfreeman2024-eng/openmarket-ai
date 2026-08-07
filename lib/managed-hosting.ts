@@ -37,13 +37,14 @@ export function createManagedAgent(opts: {
   name: string;
   script: string;
   capability: string;
+  agentId?: string;
   env?: Record<string, string>;
 }): ManagedAgent {
   const port = nextPort++;
   const managed: ManagedAgent = {
     id: newId("mga"),
     name: opts.name,
-    agentId: "", // will be set after registration
+    agentId: opts.agentId || "", // will be set after registration
     status: "starting",
     port,
     script: opts.script,
@@ -52,6 +53,10 @@ export function createManagedAgent(opts: {
       AGENT_CAPABILITY: opts.capability,
       AGENT_PORT: String(port),
       AGENT_HOST: "0.0.0.0",
+      AGENTBAZAAR_URL:
+        process.env.SITE_URL?.trim() ||
+        process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+        "https://agentbazaar.app",
       ...opts.env,
     },
     restartCount: 0,
@@ -154,6 +159,32 @@ export function getManagedAgent(id: string): ManagedAgent | null {
 
 export function listManagedAgents(): ManagedAgent[] {
   return Array.from(managedAgents.values()).map((e) => e.agent);
+}
+
+export function removeManagedAgent(id: string): boolean {
+  const entry = managedAgents.get(id);
+  if (!entry) return false;
+
+  if (entry.process) {
+    try {
+      entry.process.kill("SIGTERM");
+    } catch {
+      // ignore
+    }
+    entry.process = undefined;
+  }
+  managedAgents.delete(id);
+  log.info({ agentId: id }, "Managed agent removed");
+  return true;
+}
+
+/**
+ * Managed hosting is an opt-in platform feature. Spawning agent processes
+ * on the host is powerful — operators must explicitly enable it via
+ * `MANAGED_HOSTING_ENABLED=true` in the environment.
+ */
+export function managedHostingEnabled(): boolean {
+  return process.env.MANAGED_HOSTING_ENABLED === "true";
 }
 
 /** Auto-restart crashed agents */

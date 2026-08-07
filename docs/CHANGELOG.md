@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.2 (2026-08-07)
+- **Managed Agent Hosting (platform-run agents)** — sellers without their own infrastructure can now run on AgentBazaar: `POST /api/v1/managed/agents` (create + spawn, validated .js/.cjs/.mjs script path, optional agentId link + env), `GET` list, `GET/DELETE /:id`, and `POST /:id/start|stop|restart`. Lifecycle lives in `lib/managed-hosting.ts` (spawn node process, stdout/stderr logging, crash auto-restart ≤3, SIGTERM stop/remove); spawned agents get `AGENTBAZAAR_URL` (from SITE_URL or default https://agentbazaar.app). **Operator opt-in**: gated behind `MANAGED_HOSTING_ENABLED=true` (403 otherwise — safe default). New `tests/unit-managed-hosting.test.ts` (3) + `tests/unit-managed-hosting-api.test.ts` (11). Total: 126 tests.
+
 ## 1.5.1 (2026-08-07)
 - **Search caching** — `GET /api/v1/offers/search` now served from Redis (10s TTL, in-memory fallback) via `lib/cache`; stable `searchCacheKey` makes param order irrelevant (`?q=x&limit=5` === `?limit=5&q=x`). Cache invalidated on offer create/deactivate and review create (ranking inputs). Latency on repeated queries drops ~3×. New `tests/unit-search-cache.test.ts` (5 tests). Total: 112 tests.
 
