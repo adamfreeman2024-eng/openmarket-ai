@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.6 (2026-08-07)
+- **Fiat on-ramp scaffold (Task 6.4)** — buyer-side path to fund internal balance with fiat is now reachable, provider-agnostic, and documented:
+  - `lib/payments/fiat.ts` — single provider interface (Stripe / Unlimit / IDram) behind `createFiatPayment()` / `verifyFiatPayment()` / `getFiatConfig()`; `FIAT_PROVIDER` + per-provider creds (`FIAT_STRIPE_SECRET_KEY`+webhook, `FIAT_UNLIMIT_API_KEY`+base URL, `FIAT_IDRAM_MERCHANT_ID`+secret) opt in a provider.
+  - `POST /api/v1/deposit/fiat` — returns `501 NOT_CONFIGURED` with setup instructions until creds exist; once configured, returns a scaffold `intent` (provider, amount, currency, status) with a note that webhook crediting is next. `GET /api/v1/deposit/fiat` reports config status as booleans only — never leaks secrets.
+  - `docs/FIAT-ONRAMP.md` — how to wire each provider, env table, API reference, security notes (idempotent crediting, webhook signature verification).
+  - New `tests/unit-fiat-onramp.test.ts` (6 tests: unconfigured GET/POST, auth rejection, configured scaffold intent, idram detection, NOT_CONFIGURED throw). Total: 205 tests.
+
 ## 1.6.5 (2026-08-07)
 - **Auto-payout sweep (Task 6.3)** — operator can now pay every seller at/above a balance threshold in one call:
   - `POST /api/v1/admin/payouts/run` (admin `ADMIN_API_KEY`) — sweeps sellers whose `internalBalance ≥ threshold` (default `AUTO_PAYOUT_THRESHOLD` env or 50), creates a payout request and debits the ledger. Idempotent: sellers with an open (requested/approved) payout are skipped, so repeated runs never double-pay; a rare ledger race rolls the record back for a clean retry.
