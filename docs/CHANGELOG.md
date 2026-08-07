@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.2 (2026-08-07)
+- **Managed Agent Hosting ENABLED + hardened (Task 4.1)** — `MANAGED_HOSTING_ENABLED=true` default in docker-compose (operator opt-in now on). Security hardening before opening (critical findings):
+  - **Env sanitization** — managed agent processes get ONLY `AGENT_*`/`OPENMARKET_*`/`NEXT_PUBLIC_*`/`SITE_URL`/`PORT`/`NODE_ENV`/`NODE_OPTIONS`/`PATH`/`HOME`/`TMPDIR`; platform secrets (`HEDERA_OPERATOR_KEY`, `ADMIN_API_KEY`, `WEBHOOK_SECRET`, `ALERT_WEBHOOK_URL`, `DATABASE_URL`, LLM/DeepSeek/OpenAI keys, etc) are NEVER passed. Previously the whole `process.env` leaked to uploaded scripts — catastrophic.
+  - **Script path lockdown** — scripts must live under `scripts/managed` (or `MANAGED_SCRIPT_DIR`); arbitrary file execution blocked.
+  - **Resource caps** — `--max-old-space-size=256` + wall-clock `MANAGED_AGENT_MAX_RUNTIME_MS` (default 1h) kill timer.
+  - Demo agent `scripts/managed/demo-agent.js` (echo service).
+  - New `tests/unit-managed-security.test.ts` (4 tests: gate, secret stripping, path rule, spawn env) + existing lifecycle/api tests updated. Total: 173 tests.
+- Total: 173 tests (24 files).
+
 ## 1.6.1 (2026-08-07)
 - **Deposit on-chain verification (Task 2.2, security fix)** — `POST /api/v1/deposit` with strict settlement now VERIFIES the transaction on the mirror node (SUCCESS + credits operator treasury with ≥ amount) before crediting the internal balance; replay protection via `claimTxUsed`. Previously any random `txId` credited funds — a real funding gap. `mode: "mirror_verified"`. New tests: no-txId → 402, verified deposit → balance +5 (total 9). Also replaced store's lazy `require("./tx-id")` with a top-level import (fixes vitest module resolution).
 - Total: 169 tests (23 files).

@@ -17,6 +17,7 @@ beforeEach(() => {
     scriptPath,
     `setInterval(() => {}, 1000); console.log("managed agent up");`
   );
+  process.env.MANAGED_SCRIPT_DIR = tmpDir;
   delete process.env.MANAGED_HOSTING_ENABLED;
 });
 
@@ -43,7 +44,7 @@ describe("managed agent lifecycle", () => {
       script: scriptPath,
       capability: "text.translate",
       agentId: "agt_test",
-      env: { EXTRA: "1" },
+      env: { AGENT_EXTRA: "1" },
     });
     expect(created.id).toMatch(/^mga_/);
     expect(created.status).toBe("starting");
@@ -51,7 +52,7 @@ describe("managed agent lifecycle", () => {
     expect(created.env?.AGENT_NAME).toBe("Test Seller");
     expect(created.env?.AGENT_CAPABILITY).toBe("text.translate");
     expect(created.env?.AGENTBAZAAR_URL).toBeTruthy();
-    expect(created.env?.EXTRA).toBe("1");
+    expect(created.env?.AGENT_EXTRA).toBe("1");
 
     // Not yet in the list until started? createManagedAgent stores it.
     expect(mh.getManagedAgent(created.id)?.id).toBe(created.id);

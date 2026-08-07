@@ -57,6 +57,7 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) });
 beforeAll(async () => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "managed-api-test-"));
   process.env.OM_DATA_DIR = tmpDir;
+  process.env.MANAGED_SCRIPT_DIR = tmpDir; // allow test scripts under tmpDir
   const { db } = await import("../lib/store");
   db.putAgent({
     id: "agt_owner",
@@ -176,7 +177,7 @@ describe("POST /api/v1/managed/agents", () => {
       req("http://x/api/v1/managed/agents", {
         method: "POST",
         key: API_KEY,
-        body: { name: "A", script: "/tmp/does-not-exist.js", capability: "x" },
+        body: { name: "A", script: path.join(tmpDir, "does-not-exist.js"), capability: "x" },
       })
     );
     expect(missingFile.status).toBe(400);

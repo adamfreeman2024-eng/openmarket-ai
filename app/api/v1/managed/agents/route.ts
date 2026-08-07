@@ -27,6 +27,14 @@ export function OPTIONS() {
 
 const ALLOWED_SCRIPT_EXT = [".js", ".cjs", ".mjs"];
 
+/** Scripts may only live under this directory (prevents arbitrary file exec). */
+function managedScriptDir(): string {
+  return (
+    process.env.MANAGED_SCRIPT_DIR?.trim() ||
+    path.join(process.cwd(), "scripts", "managed")
+  );
+}
+
 function validateScript(script: string): string | null {
   if (!script || typeof script !== "string") return "Missing script path";
   const ext = path.extname(script).toLowerCase();
@@ -34,6 +42,10 @@ function validateScript(script: string): string | null {
     return `Script must be a .js/.cjs/.mjs file (got "${ext || "no extension"}")`;
   }
   const resolved = path.resolve(script);
+  const allowed = path.resolve(managedScriptDir());
+  if (!resolved.startsWith(allowed + path.sep)) {
+    return `Script must live under ${allowed}`;
+  }
   if (!fs.existsSync(resolved)) return `Script not found: ${resolved}`;
   return null;
 }

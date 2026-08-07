@@ -33,6 +33,45 @@ export type ManagedAgent = {
 const managedAgents = new Map<string, { agent: ManagedAgent; process?: ChildProcess }>();
 let nextPort = 3020;
 
+/**
+ * Env vars that are NEVER passed to managed agent processes.
+ * These are platform secrets — leaking them to any uploaded script would be
+ * catastrophic (operator treasury key, admin keys, webhook secrets, etc).
+ */
+const BLOCKED_ENV_KEYS = [
+  "HEDERA_OPERATOR_KEY",
+  "OPERATOR_API_KEY",
+  "ADMIN_API_KEY",
+  "WEBHOOK_SECRET",
+  "ALERT_WEBHOOK_URL",
+  "TOKENROUTER_API_KEY",
+  "LLM_API_KEY",
+  "GEMINI_API_KEY",
+  "OPENAI_API_KEY",
+  "DEEPSEEK_API_KEY",
+  "NOUS_API_KEY",
+  "METRICS_TOKEN",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SERVICE_ROLE_KEY",
+  "DATABASE_URL",
+  "POSTGRES_PASSWORD",
+  "REDIS_PASSWORD",
+];
+
+/** Only these env vars are allowed through to managed agents (plus AGENT_*). */
+const ALLOWED_ENV_PREFIXES = ["AGENT_", "OPENMARKET_", "NEXT_PUBLIC_", "SITE_URL", "PORT", "NODE_ENV", "NODE_OPTIONS", "PATH", "HOME", "TMPDIR"];
+
+function sanitizeAgentEnv(base: Record<string, string | undefined>): Record<string, string | undefined> {
+  const out: Record<string, string | undefined> = {};
+  for (const [k, v] of Object.entries(base)) {
+    if (BLOCKED_ENV_KEYS.includes(k)) continue;
+    if (ALLOWED_ENV_PREFIXES.some((p) => k.startsWith(p) || k === p)) {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+
 export function createManagedAgent(opts: {
   name: string;
   script: string;
@@ -57,7 +96,7 @@ export function createManagedAgent(opts: {
         process.env.SITE_URL?.trim() ||
         process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
         "https://agentbazaar.app",
-      ...opts.env,
+      ...sanitizeAgentEnv(opts.env || {}),
     },
     restartCount: 0,
   };
@@ -77,15 +116,27 @@ export function startManagedAgent(id: string): ManagedAgent | null {
   const scriptPath = path.resolve(agent.script);
 
   try {
-    const proc = spawn("node", [scriptPath], {
+    // Resource guard: agents run with a wall-clock cap and no stdin; a
+    // misbehaving script cannot consume unbounded host resources.
+    const maxRuntimeMs = Number(process.env.MANAGED_AGENT_MAX_RUNTIME_MS || 60 * 60 * 1000);
+    const proc = spawn("node", ["--max-old-space-size=256", scriptPath], {
       env: {
-        ...process.env,
+        // Pass only the sanitized agent env (never platform secrets).
+        ...sanitizeAgentEnv(process.env),
         ...agent.env,
         AGENT_NAME: agent.name,
-      },
+        NODE_ENV: process.env.NODE_ENV || "production",
+      } as NodeJS.ProcessEnv,
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
     });
+    const runtimeTimer = setTimeout(() => {
+      if (proc.exitCode === null) {
+        log.warn({ agentId: agent.id, maxRuntimeMs }, "Managed agent runtime cap hit — killing");
+        try { proc.kill("SIGTERM"); } catch { /* ignore */ }
+      }
+    }, maxRuntimeMs);
+    runtimeTimer.unref();
 
     agent.pid = proc.pid;
     agent.status = "running";
