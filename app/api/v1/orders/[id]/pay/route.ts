@@ -175,6 +175,15 @@ export async function POST(
       seller.stats.success += 1;
       seller.stats.totalLatencyMs += latencyMs;
       db.putAgent(seller);
+      // Platform internal ledger — credit seller for non-escrow completed order.
+      // Seller amount = total minus platform fee (mirrors escrow release path).
+      const sellerAmount = Number(
+        ((live.totalAmount || 0) - (live.platformFee || 0)).toFixed(8)
+      );
+      if (sellerAmount > 0) {
+        const { creditSale } = await import("@/lib/agent-ledger");
+        creditSale(live.sellerAgentId, sellerAmount, live.id);
+      }
     }
     if (live.buyerAgentId) {
       const buyer = db.getAgent(live.buyerAgentId);

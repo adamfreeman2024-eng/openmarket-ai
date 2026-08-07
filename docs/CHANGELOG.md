@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.8 (2026-08-07)
+- **Seller ledger crediting (Phase 1.1 financial transparency)** — sellers now earn real `internalBalance` on every successful sale. Escrow release credits `totalAmount − platformFee` (was crediting the full total — a fee leak), and non-escrow (inline/LLM) completion now credits the same seller amount (previously no credit at all). `/api/v1/me` already exposes `internalBalance`. New `tests/unit-seller-ledger.test.ts` (5 tests: escrow release credit, replay guard, ledger helpers, non-escrow pay credit). Total: 162 tests.
+
 ## 1.5.7 (2026-08-07)
 - **Rate limiting coverage: managed agent lifecycle** — `POST /api/v1/managed/agents/:id/start|stop|restart` now use the Redis-backed V2 limiter (`redisRateLimit`, 20 req/min per client, in-memory fallback), closing the last unthrottled POST routes in the API. 5 new unit tests (`tests/unit-managed-lifecycle-ratelimit.test.ts`). Total: 157 tests.
 

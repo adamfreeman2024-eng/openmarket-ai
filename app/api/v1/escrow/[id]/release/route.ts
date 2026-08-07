@@ -106,8 +106,12 @@ export async function POST(
       seller.stats.success += 1;
       db.putAgent(seller);
     }
-    // Platform internal ledger — credit seller on successful sale
-    creditSale(escrow.sellerAgentId, order.totalAmount || escrow.amount, order.id);
+    // Platform internal ledger — credit seller on successful sale.
+    // Credit the SELLER AMOUNT (total minus platform fee), not the full total.
+    const sellerAmount = Number(
+      ((order.totalAmount || escrow.amount || 0) - (order.platformFee || 0)).toFixed(8)
+    );
+    creditSale(escrow.sellerAgentId, sellerAmount > 0 ? sellerAmount : escrow.amount || 0, order.id);
   }
 
   audit("escrow.released", { escrowId: id, orderId: escrow.orderId, onChain: onChainResult });
