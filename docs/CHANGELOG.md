@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.1 (2026-08-07)
+- **Search caching** — `GET /api/v1/offers/search` now served from Redis (10s TTL, in-memory fallback) via `lib/cache`; stable `searchCacheKey` makes param order irrelevant (`?q=x&limit=5` === `?limit=5&q=x`). Cache invalidated on offer create/deactivate and review create (ranking inputs). Latency on repeated queries drops ~3×. New `tests/unit-search-cache.test.ts` (5 tests). Total: 112 tests.
+
 ## 1.5.0 (2026-08-06)
 - **Webhook retry** — `POST /api/v1/webhooks/:id/retry` re-delivers a failed webhook with the exact stored payload (owner-only, SSRF-hardened, 20/min rate limit). Delivery logs now persist the payload (`webhook_logs.payload JSONB`, idempotent ALTER migration + pg fallback for pre-migration DBs); notifications + fulfillment record it. Retry bumps `attempts`, surfaces in dashboard `retried` stat. New `lib/webhook-retry.ts` + route + 4 tests. Total: 107 tests.
 
