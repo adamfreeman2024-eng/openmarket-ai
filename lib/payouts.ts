@@ -4,7 +4,8 @@
  */
 import fs from "fs";
 import path from "path";
-import { newId } from "./store";
+import { newId, db } from "./store";
+import { getBalance, debitAgent } from "./agent-ledger";
 
 export type PayoutMethod = "hbar" | "usdc" | "manual";
 
@@ -79,4 +80,84 @@ export function listAllPayouts(): PayoutRecord[] {
 /** Persist any in-place mutations (e.g. admin status transitions). */
 export function persistPayouts(): void {
   persist();
+}
+
+/**
+ * Task 6.3 — auto-payout policy: for every seller whose internal balance is
+ * at/above the threshold and who has opted into auto-payout (payoutMethod
+ * set), create a payout request and debit the ledger — operator then runs
+ * the existing admin approval flow. Idempotent: sellers with an open
+ * (requested/approved) payout are skipped, so running repeatedly never
+ * double-pays. dryRun returns the plan without mutating anything.
+ */
+export function schedulePayouts(opts?: {
+  threshold?: number;
+  dryRun?: boolean;
+}): {
+  created: PayoutRecord[];
+  skippedNoOptIn: string[];
+  skippedOpenPayout: string[];
+  threshold: number;
+} {
+  const threshold =
+    opts?.threshold ?? Number(process.env.AUTO_PAYOUT_THRESHOLD || 50);
+  const created: PayoutRecord[] = [];
+  const skippedNoOptIn: string[] = [];
+  const skippedOpenPayout: string[] = [];
+
+  const openStatuses = new Set<PayoutRecord["status"]>(["requested", "approved"]);
+
+  for (const agent of db.listAgents()) {
+    const balance = getBalance(agent);
+    if (balance < threshold - 1e-12) continue;
+
+    const method = agent.payoutMethod;
+    if (!method) {
+      skippedNoOptIn.push(agent.id);
+      continue;
+    }
+    const account = agent.payoutAccount ?? null;
+
+    const existing = load().find(
+      (p) => p.agentId === agent.id && openStatuses.has(p.status)
+    );
+    if (existing) {
+      skippedOpenPayout.push(agent.id);
+      continue;
+    }
+
+    if (opts?.dryRun) {
+      created.push({
+        id: "dry",
+        agentId: agent.id,
+        amount: balance,
+        method,
+        account,
+        status: "requested",
+        createdAt: new Date().toISOString(),
+      });
+      continue;
+    }
+
+    // Create the payout request first (debit only after persist succeeds).
+    const rec = addPayout({
+      agentId: agent.id,
+      amount: balance,
+      method,
+      account,
+    });
+    const debited = debitAgent(agent.id, balance, `auto_payout:${rec.id}`);
+    if (!debited.ok) {
+      // Ledger changed between check and debit (rare race) — roll back the
+      // just-created record so the next run can retry cleanly.
+      const idx = load().findIndex((p) => p.id === rec.id);
+      if (idx >= 0) load().splice(idx, 1);
+      persist();
+      skippedNoOptIn.push(agent.id);
+      continue;
+    }
+    created.push(rec);
+  }
+
+  return { created, skippedNoOptIn, skippedOpenPayout, threshold };
 }

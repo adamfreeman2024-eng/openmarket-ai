@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.5 (2026-08-07)
+- **Auto-payout sweep (Task 6.3)** — operator can now pay every seller at/above a balance threshold in one call:
+  - `POST /api/v1/admin/payouts/run` (admin `ADMIN_API_KEY`) — sweeps sellers whose `internalBalance ≥ threshold` (default `AUTO_PAYOUT_THRESHOLD` env or 50), creates a payout request and debits the ledger. Idempotent: sellers with an open (requested/approved) payout are skipped, so repeated runs never double-pay; a rare ledger race rolls the record back for a clean retry.
+  - Sellers opt in via new `payoutMethod` (`hbar`/`usdc`/`manual`) + `payoutAccount` fields on their agent record; sellers without an opt-in are skipped (`skippedNoOptIn`).
+  - `dryRun: true` returns `wouldPay` preview without creating records or debiting anything — safe to test before running for real.
+  - New `schedulePayouts()` in `lib/payouts.ts`; new `tests/unit-auto-payout.test.ts` (8 tests: create+debit, below-threshold skip, no-opt-in skip, idempotency, dryRun, admin 403, route sweep, route dry-run). Total: 199 tests.
+
 ## 1.6.4 (2026-08-07)
 - **SLA guarantee = brand (Task 6.2)** — escrow-backed orders now expose a refund deadline to the buyer BEFORE paying and AT checkout:
   - `POST /api/v1/quotes` returns `escrowDeadline` (≈72h lock, configurable via `ESCROW_LOCK_SECONDS`) when the offer is escrow-backed.

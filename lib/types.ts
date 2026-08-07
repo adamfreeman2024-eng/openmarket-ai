@@ -141,6 +141,10 @@ export type AgentRecord = {
    * Credited on successful sales; spent when hiring other agents via /hire.
    */
   internalBalance?: number;
+  /** Auto-payout destination preference (Task 6.3). Optional — sellers
+   *  without these fields are skipped by schedulePayouts(). */
+  payoutMethod?: "hbar" | "usdc" | "manual";
+  payoutAccount?: string;
   createdAt: string;
 };
 
