@@ -211,4 +211,46 @@ describe("searchOffers", () => {
     const res = searchOffers([c, b, a], agentMap, { reviewStats, sortBy: "rating" });
     expect(res.map((r) => r.offer.id)).toEqual(["sA-offer", "sB-offer", "sC-offer"]);
   });
+
+  it("filters by escrowOnly — only escrow-backed offers remain", () => {
+    const escrowed = makeOffer({ id: "esc1", agentId: "seller1", escrow: true });
+    const plain = makeOffer({ id: "plain1", agentId: "seller2", escrow: false });
+    const res = searchOffers([escrowed, plain], agents, { escrowOnly: true });
+    expect(res.map((r) => r.offer.id)).toEqual(["esc1"]);
+  });
+
+  it("filters by minOnTimeRate (SLA)", () => {
+    const onTime = makeOffer({ id: "sla-good", agentId: "seller1" });
+    const late = makeOffer({ id: "sla-bad", agentId: "seller2" });
+    const slaStats = new Map<any, any>([
+      ["seller1", { onTimeRate: 0.95, totalDeliveries: 20, avgLatencyMs: 500 }],
+      ["seller2", { onTimeRate: 0.4, totalDeliveries: 10, avgLatencyMs: 9000 }],
+    ]);
+    const res = searchOffers([onTime, late], agents, { slaStats, minOnTimeRate: 0.8 });
+    expect(res.map((r) => r.offer.id)).toEqual(["sla-good"]);
+  });
+
+  it("sorts by quality — composite of reviews + SLA + success rate", () => {
+    const agentMap = new Map<string, any>([
+      ["qA", makeAgent("qA", { success: 20, fail: 0 })],
+      ["qB", makeAgent("qB", { success: 2, fail: 8 })],
+    ]);
+    const a = makeOffer({ id: "qA-offer", agentId: "qA", priceAmount: 1 });
+    const b = makeOffer({ id: "qB-offer", agentId: "qB", priceAmount: 1 });
+    const reviewStats = new Map([["qA", { average: 4.9, total: 12 }]]);
+    const slaStats = new Map<any, any>([
+      ["qA", { onTimeRate: 1, totalDeliveries: 20, avgLatencyMs: 200 }],
+    ]);
+    const successRateByAgent = new Map<string, number>([
+      ["qA", 1],
+      ["qB", 0.2],
+    ]);
+    const res = searchOffers([b, a], agentMap, {
+      reviewStats,
+      slaStats,
+      successRateByAgent,
+      sortBy: "quality",
+    });
+    expect(res[0].offer.id).toBe("qA-offer");
+  });
 });

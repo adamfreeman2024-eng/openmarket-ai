@@ -3,6 +3,17 @@ import { db, ensureSeedCatalog } from "@/lib/store";
 import { json, options, requireAgent, isResponse } from "@/lib/http";
 import { reputationForApi } from "@/lib/reputation";
 import { USDC_TOKEN_ID } from "@/lib/config";
+import { listAllPayouts } from "@/lib/payouts";
+
+/** Latest payout status for an order (from the payouts store). */
+function payoutForOrder(orderId: string): string {
+  try {
+    const p = listAllPayouts().find((x) => x.orderId === orderId);
+    return p ? p.status : "";
+  } catch {
+    return "";
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,21 +86,34 @@ export async function GET(req: NextRequest) {
     .slice()
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
     .slice(0, 20)
-    .map((o) => ({
-      id: o.id,
-      status: o.status,
-      totalAmount: o.totalAmount,
-      sellerAmount:
-        typeof o.sellerAmount === "number" ? o.sellerAmount : undefined,
-      priceAsset: o.priceAsset,
-      offerId: o.offerId,
-      buyerAgentId: o.buyerAgentId,
-      createdAt: o.createdAt,
-      completedAt: o.completedAt,
-      latencyMs: o.latencyMs,
-      capability:
-        allOffers.find((of) => of.id === o.offerId)?.capability || "unknown",
-    }));
+    .map((o) => {
+      // Payout status for the seller:
+      //  - completed + sellerAmount set → "earned" (funds in internal balance)
+      //  - escrow was used and released → "released"
+      //  - a payout record exists for this order → "paid"
+      let payoutStatus: string = "pending";
+      if (o.status === "completed") payoutStatus = "earned";
+      if (o.status === "completed" && o.result && typeof o.result === "object" && (o.result as { released?: boolean }).released) {
+        payoutStatus = "released";
+      }
+      if (payoutForOrder(o.id) === "paid") payoutStatus = "paid";
+      return {
+        id: o.id,
+        status: o.status,
+        totalAmount: o.totalAmount,
+        sellerAmount:
+          typeof o.sellerAmount === "number" ? o.sellerAmount : undefined,
+        payoutStatus,
+        priceAsset: o.priceAsset,
+        offerId: o.offerId,
+        buyerAgentId: o.buyerAgentId,
+        createdAt: o.createdAt,
+        completedAt: o.completedAt,
+        latencyMs: o.latencyMs,
+        capability:
+          allOffers.find((of) => of.id === o.offerId)?.capability || "unknown",
+      };
+    });
 
   const recentBuy = buyOrders
     .slice()

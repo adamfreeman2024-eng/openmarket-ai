@@ -6,6 +6,29 @@ import { computeReputation } from "./reputation";
 /** Review quality signal — average 1..5 + verified review count. */
 export type ReviewQuality = { average: number; total: number };
 
+/** SLA signal — on-time delivery rate (0..1) + avg latency. */
+export type SLASignal = { onTimeRate: number; totalDeliveries: number; avgLatencyMs: number };
+
+/** Quality composite — reviews + SLA + success rate (0..1 normalized). */
+export function qualityScore(opts: {
+  reviews?: ReviewQuality;
+  sla?: SLASignal;
+  successRate?: number | null;
+}): number {
+  let s = 0;
+  if (opts.reviews && opts.reviews.total > 0) {
+    const confidence = Math.min(opts.reviews.total / 5, 1);
+    s += 0.4 * ((opts.reviews.average / 5) * confidence);
+  }
+  if (opts.sla && opts.sla.totalDeliveries > 0) {
+    s += 0.3 * opts.sla.onTimeRate;
+  }
+  if (opts.successRate != null) {
+    s += 0.3 * opts.successRate;
+  }
+  return s;
+}
+
 /** Agent-oriented ranking — higher is better.
  *  Now includes reputation boost from badges + verified review quality (V2). */
 export function rankOffer(
@@ -93,14 +116,21 @@ export function searchOffers(
     ordersByAgent?: Map<string, number>;
     tags?: string[];
     category?: string;
-    sortBy?: "relevance" | "price_low" | "price_high" | "reputation" | "speed" | "rating";
+    sortBy?: "relevance" | "price_low" | "price_high" | "reputation" | "speed" | "rating" | "quality";
     minRating?: number;
     minReviewRating?: number;
+    minOnTimeRate?: number;
+    escrowOnly?: boolean;
     reviewStats?: Map<string, ReviewQuality>;
+    slaStats?: Map<string, SLASignal>;
+    successRateByAgent?: Map<string, number>;
   }
 ) {
   const text = (q.q || "").toLowerCase().trim();
   let list = offers.filter((o) => o.active);
+  if (q.escrowOnly) {
+    list = list.filter((o) => o.escrow);
+  }
   if (q.capability) {
     list = list.filter(
       (o) =>
@@ -154,6 +184,15 @@ export function searchOffers(
     });
   }
 
+  // Min SLA / on-time delivery rate filter (0..1), e.g. 0.9 = 90% on time
+  if (q.minOnTimeRate != null && q.minOnTimeRate > 0) {
+    list = list.filter((o) => {
+      const sla = q.slaStats?.get(o.agentId);
+      if (!sla || sla.totalDeliveries === 0) return true; // unknown sellers pass
+      return sla.onTimeRate >= q.minOnTimeRate!;
+    });
+  }
+
   const scored = list
     .map((o) => {
       const seller = agents.get(o.agentId);
@@ -195,6 +234,22 @@ export function searchOffers(
       const aCount = aRev?.total ?? 0;
       const bCount = bRev?.total ?? 0;
       return bCount - aCount;
+    });
+  } else if (sortBy === "quality") {
+    // Quality composite — reviews + SLA + success rate (Phase 3.1).
+    scored.sort((a, b) => {
+      const aQ = qualityScore({
+        reviews: q.reviewStats?.get(a.offer.agentId),
+        sla: q.slaStats?.get(a.offer.agentId),
+        successRate: q.successRateByAgent?.get(a.offer.agentId),
+      });
+      const bQ = qualityScore({
+        reviews: q.reviewStats?.get(b.offer.agentId),
+        sla: q.slaStats?.get(b.offer.agentId),
+        successRate: q.successRateByAgent?.get(b.offer.agentId),
+      });
+      if (bQ !== aQ) return bQ - aQ;
+      return b.score - a.score; // tie-break by relevance
     });
   } else if (sortBy === "speed") {
     scored.sort((a, b) => {

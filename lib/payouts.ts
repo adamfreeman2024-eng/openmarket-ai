@@ -15,8 +15,11 @@ export type PayoutRecord = {
   method: PayoutMethod;
   account: string | null;
   status: "requested" | "approved" | "paid" | "rejected";
+  /** Optional orderId — links a payout to the sale that generated it. */
+  orderId?: string;
   adminNote?: string;
   createdAt: string;
+  processedAt?: string;
 };
 
 const FILE = process.env.OM_DATA_DIR
@@ -46,6 +49,7 @@ export function addPayout(input: {
   amount: number;
   method: PayoutMethod;
   account: string | null;
+  orderId?: string;
 }): PayoutRecord {
   const rec: PayoutRecord = {
     id: newId("pout"),
@@ -54,6 +58,7 @@ export function addPayout(input: {
     method: input.method,
     account: input.account,
     status: "requested",
+    orderId: input.orderId,
     createdAt: new Date().toISOString(),
   };
   load().push(rec);
@@ -69,4 +74,9 @@ export function listPayoutsByAgent(agentId: string): PayoutRecord[] {
 
 export function listAllPayouts(): PayoutRecord[] {
   return load();
+}
+
+/** Persist any in-place mutations (e.g. admin status transitions). */
+export function persistPayouts(): void {
+  persist();
 }

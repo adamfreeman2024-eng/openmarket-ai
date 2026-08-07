@@ -277,6 +277,84 @@ describe("non-escrow pay credits seller (inline/LLM completion)", () => {
   });
 });
 
+describe("buy with internal balance (Phase 2.1)", () => {
+  it("debits buyer balance and completes without an on-chain tx", async () => {
+    const { db } = await import("../lib/store");
+    // Fresh seller so this test doesn't perturb the shared agt_seller balance.
+    db.putAgent({
+      id: "agt_seller_ibuy",
+      name: "IBuy Seller",
+      apiKey: "omk_ibuy-seller",
+      walletAccountId: "0.0.9005",
+      capabilities: ["demo.echo"],
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 50,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-08-07",
+        spentAt: [],
+      },
+      stats: { sales: 0, purchases: 0, success: 0, fail: 0, totalLatencyMs: 0 },
+      verificationStatus: "bronze",
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    // Give the buyer a starting balance to spend (direct put — no async hydrate race).
+    const buyer = db.getAgent("agt_buyer");
+    db.putAgent({ ...buyer!, internalBalance: 10 });
+
+    db.putOffer({
+      id: "off_ibuy",
+      agentId: "agt_seller_ibuy",
+      capability: "demo.echo",
+      title: "Echo internal-balance",
+      priceAmount: 0.5,
+      priceAsset: "USDC",
+      fulfillmentType: "inline",
+      maxSeconds: 10,
+      escrow: false,
+      tags: [],
+      active: true,
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    db.putQuote({
+      id: "qte_ibuy",
+      offerId: "off_ibuy",
+      agentId: "agt_seller_ibuy",
+      buyerAgentId: "agt_buyer",
+      buyerWallet: "0.0.9002",
+      priceAmount: 0.5,
+      platformFee: 0.01,
+      totalAmount: 0.51,
+      priceAsset: "USDC",
+      payTo: "0.0.9587214",
+      expiresAt: "2026-08-07T11:00:00.000Z",
+      createdAt: "2026-08-07T10:00:00.000Z",
+    });
+
+    const { POST } = await import("../app/api/v1/buy/route");
+    const res = await POST(
+      req("https://agentbazaar.app/api/v1/buy", {
+        method: "POST",
+        key: BUYER_KEY,
+        body: { offerId: "off_ibuy", input: { text: "buy with balance" } },
+      })
+    );
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.order.status).toBe("completed");
+    expect(body.order.transactionId).toContain("internal:");
+
+    const buyerAfter = db.getAgent("agt_buyer");
+    // 10 topup − 0.51 spent = 9.49
+    expect(buyerAfter?.internalBalance).toBeCloseTo(9.49, 6);
+    // Seller earned 0.50 (0.51 − 0.01 fee)
+    expect(db.getAgent("agt_seller_ibuy")?.internalBalance).toBeCloseTo(0.5, 6);
+  });
+});
+
 describe("GET /api/v1/me — financial transparency (Task 1.2)", () => {
   it("exposes balance, earnedTotal (net) and sellerAmount on sell orders", async () => {
     const { GET } = await import("../app/api/v1/me/route");

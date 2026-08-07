@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.0 (2026-08-07)
+- **Internal balance = default payment path (Phase 2.1)** — a registered buyer with sufficient `internalBalance` now buys WITHOUT an on-chain transaction (`POST /api/v1/buy` debits the ledger, order completes instantly, `transactionId: "internal:..."`). No Hedera wallet knowledge needed. Escrow offers still use the on-chain escrow flow. Fixed a stale-buyer-overwrite bug found by tests (completed stats reload fresh agent so the debit isn't clobbered). New test: buy with balance (10 → 9.49 spent, seller 0.50 earned).
+- **Search filters (Phase 3.1)** — `GET /api/v1/offers/search` gains `escrowOnly=1`, `minOnTimeRate` (SLA filter), `sortBy=quality` (composite of reviews + SLA + success rate via new `qualityScore`), and returns `seller.sla` (onTimeRate/avgLatencyMs) per result. New `tests/unit-ranking.test.ts` cases (escrowOnly, SLA filter, quality sort).
+- **Payout status + admin transitions (Task 1.2/1.3)** — `/api/v1/me` sell orders now carry `payoutStatus` (pending/earned/released/paid, linked to payout records by `orderId`); new `PATCH /api/v1/payouts/:id` (admin `ADMIN_API_KEY`) transitions requested → approved → paid/rejected, records `processedAt`, and returns funds on rejection. `lib/payouts.ts` gained `orderId`, `processedAt`, `persistPayouts()`.
+- Total: 167 tests (23 files).
+
 ## 1.5.9 (2026-08-07)
 - **Ledger persistence fix (critical)** — `internalBalance` is now stored in Postgres (`agents.internal_balance NUMERIC`): previously only the in-memory/file copy carried it, so a restart wiped every seller's balance. `pgPutAgent`/`rowToAgent` round-trip the field. Idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (auto-applied on pool init).
 

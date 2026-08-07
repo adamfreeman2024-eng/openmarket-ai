@@ -13,6 +13,7 @@ import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
 import { notify } from "@/lib/notifications";
 import { redisRateLimit, clientKey } from "@/lib/rate-limit";
+import { getBalance, debitAgent, creditSale } from "@/lib/agent-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -101,8 +102,35 @@ export async function POST(req: NextRequest) {
   };
   db.putOrder(order);
 
+  // Internal balance fast-path (Phase 2.1): a registered buyer with
+  // sufficient internalBalance pays WITHOUT an on-chain transaction —
+  // no Hedera wallet knowledge required. Escrow offers still need the
+  // on-chain escrow flow (funds live in the contract).
+  let internalPaid = false;
+  if (
+    !parsed.data.transactionId &&
+    !parsed.data.devFakePay &&
+    buyer &&
+    !offer.escrow &&
+    getBalance(buyer) >= totalAmount
+  ) {
+    const debited = debitAgent(buyer.id, totalAmount, `buy:${order.id}`);
+    if (!debited.ok) {
+      return json({ ok: false, error: debited.error }, 400);
+    }
+    internalPaid = true;
+    order.transactionId = `internal:${order.id}`;
+    order.status = "paid";
+    db.putOrder(order);
+    audit("buy.internal_balance", {
+      orderId: order.id,
+      amount: totalAmount,
+      balance: getBalance(debited.agent),
+    });
+  }
+
   // If no payment proof yet — return 402 with instructions (agent can pay then retry with tx)
-  if (!parsed.data.transactionId && !parsed.data.devFakePay) {
+  if (!internalPaid && !parsed.data.transactionId && !parsed.data.devFakePay) {
     return json(
       {
         ok: false,
@@ -134,13 +162,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const v = await verifyPayment({
-    transactionId: parsed.data.transactionId,
-    devFakePay: parsed.data.devFakePay,
-    expectedPayTo: payTo,
-    expectedAmount: totalAmount,
-    asset: offer.priceAsset,
-  });
+  // Skip on-chain verification when paid from internal balance.
+  const v = internalPaid
+    ? { ok: true as const, mode: "internal_balance", creditedBase: totalAmount }
+    : await verifyPayment({
+        transactionId: parsed.data.transactionId,
+        devFakePay: parsed.data.devFakePay,
+        expectedPayTo: payTo,
+        expectedAmount: totalAmount,
+        asset: offer.priceAsset,
+      });
   if (!v.ok) {
     order.status = "failed";
     order.error = v.error;
@@ -216,16 +247,21 @@ export async function POST(req: NextRequest) {
     seller.stats.success += 1;
     seller.stats.totalLatencyMs += latencyMs;
     db.putAgent(seller);
+    // Platform internal ledger — credit seller for non-escrow completed order.
+    const sellerAmount = Number(((order.totalAmount || 0) - (order.platformFee || 0)).toFixed(8));
+    if (sellerAmount > 0) creditSale(seller.id, sellerAmount, order.id);
   }
   if (buyer) {
-    if (buyer.policy.spentDay !== utcDay()) {
-      buyer.policy.spentDay = utcDay();
-      buyer.policy.spentToday = 0;
+    // Reload fresh — internal-balance debit already mutated the stored agent.
+    const buyerFresh = db.getAgent(buyer.id) || buyer;
+    if (buyerFresh.policy.spentDay !== utcDay()) {
+      buyerFresh.policy.spentDay = utcDay();
+      buyerFresh.policy.spentToday = 0;
     }
-    buyer.policy.spentToday += totalAmount;
-    buyer.stats.purchases += 1;
-    buyer.stats.success += 1;
-    db.putAgent(buyer);
+    buyerFresh.policy.spentToday += totalAmount;
+    buyerFresh.stats.purchases += 1;
+    buyerFresh.stats.success += 1;
+    db.putAgent(buyerFresh);
   }
   audit("buy.completed", { orderId: order.id, mode: v.mode });
   if (seller?.webhookUrl) {
