@@ -43,6 +43,9 @@ describe("verifyPayment — devFakePay", () => {
 
   it("should accept devFakePay when ALLOW_DEV_FAKE_SETTLEMENT=true and not in production", async () => {
     process.env.NODE_ENV = "development";
+    // Isolate from the environment: these may leak in from a loaded .env
+    delete process.env.STRICT_SETTLEMENT;
+    delete process.env.DEV_FAKE_PAYMENT_CONFIRMED;
     const r = await verifyPayment({
       devFakePay: true,
       expectedPayTo: "0.0.1000",
