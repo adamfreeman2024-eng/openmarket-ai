@@ -194,3 +194,53 @@ describe("POST /api/v1/admin/payouts/run", () => {
     expect(db.getAgent("agt_ap_route2")?.internalBalance).toBe(120); // untouched
   });
 });
+
+describe("PATCH /api/v1/agents/me — auto-payout opt-in (Task 6.3)", () => {
+  function req(key?: string, body?: unknown) {
+    const headers: Record<string, string> = {};
+    if (key) headers["x-api-key"] = key;
+    if (body !== undefined) headers["content-type"] = "application/json";
+    return new NextRequest("https://agentbazaar.app/api/v1/agents/me", {
+      method: "PATCH",
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  it("persists payoutMethod + payoutAccount and returns them in GET", async () => {
+    const { db } = await import("../lib/store");
+    db.putAgent(agent("agt_ap_optin", "k_ap_optin", { balance: 10 }));
+
+    const { PATCH, GET } = await import("../app/api/v1/agents/me/route");
+    const res = await PATCH(req("k_ap_optin", { payoutMethod: "hbar", payoutAccount: "0.0.9201" }));
+    expect(res.status).toBe(200);
+
+    const stored = db.getAgent("agt_ap_optin");
+    expect(stored?.payoutMethod).toBe("hbar");
+    expect(stored?.payoutAccount).toBe("0.0.9201");
+
+    const gres = await GET(req("k_ap_optin"));
+    const gbody = await gres.json();
+    expect(gbody.agent.payoutMethod).toBe("hbar");
+    expect(gbody.agent.payoutAccount).toBe("0.0.9201");
+  });
+
+  it("allows opting out by setting payoutMethod to null", async () => {
+    const { db } = await import("../lib/store");
+    db.putAgent(agent("agt_ap_optout", "k_ap_optout", { balance: 10, payoutMethod: "usdc", payoutAccount: "0.0.1" }));
+
+    const { PATCH } = await import("../app/api/v1/agents/me/route");
+    const res = await PATCH(req("k_ap_optout", { payoutMethod: null, payoutAccount: null }));
+    expect(res.status).toBe(200);
+    expect(db.getAgent("agt_ap_optout")?.payoutMethod).toBeUndefined();
+    expect(db.getAgent("agt_ap_optout")?.payoutAccount).toBeUndefined();
+  });
+
+  it("rejects invalid payoutMethod", async () => {
+    const { db } = await import("../lib/store");
+    db.putAgent(agent("agt_ap_bad", "k_ap_bad", { balance: 10 }));
+    const { PATCH } = await import("../app/api/v1/agents/me/route");
+    const res = await PATCH(req("k_ap_bad", { payoutMethod: "wire" }));
+    expect(res.status).toBe(400);
+  });
+});

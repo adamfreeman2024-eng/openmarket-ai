@@ -17,6 +17,10 @@ const PatchSchema = z
     webhookUrl: z.string().url().optional(),
     telegramChatId: z.string().min(1).max(64).nullable().optional(),
     email: z.string().email().nullable().optional(),
+    // Auto-payout opt-in (Task 6.3): payoutMethod required with payoutAccount
+    // for on-chain methods; both nullable to opt out.
+    payoutMethod: z.enum(["hbar", "usdc", "manual"]).nullable().optional(),
+    payoutAccount: z.string().min(1).max(256).nullable().optional(),
     policy: z
       .object({
         dailySpendLimit: z.number().positive().optional(),
@@ -32,9 +36,12 @@ const PatchSchema = z
       v.webhookUrl !== undefined ||
       v.telegramChatId !== undefined ||
       v.email !== undefined ||
+      v.payoutMethod !== undefined ||
+      v.payoutAccount !== undefined ||
       v.policy !== undefined,
     {
-      message: "Provide at least one field: webhookUrl, telegramChatId, email, policy",
+      message:
+        "Provide at least one field: webhookUrl, telegramChatId, email, payoutMethod, payoutAccount, policy",
     }
   );
 
@@ -56,6 +63,8 @@ export async function PATCH(req: NextRequest) {
   if (d.webhookUrl !== undefined) agent.webhookUrl = d.webhookUrl;
   if (d.telegramChatId !== undefined) agent.telegramChatId = d.telegramChatId ?? undefined;
   if (d.email !== undefined) agent.email = d.email ?? undefined;
+  if (d.payoutMethod !== undefined) agent.payoutMethod = d.payoutMethod ?? undefined;
+  if (d.payoutAccount !== undefined) agent.payoutAccount = d.payoutAccount ?? undefined;
   if (d.policy) {
     if (d.policy.dailySpendLimit !== undefined) agent.policy.dailySpendLimit = d.policy.dailySpendLimit;
     if (d.policy.maxPerTx !== undefined) agent.policy.maxPerTx = d.policy.maxPerTx;
@@ -90,6 +99,8 @@ export async function GET(req: NextRequest) {
       capabilities: agent.capabilities,
       homepage: agent.homepage,
       webhookUrl: agent.webhookUrl,
+      payoutMethod: agent.payoutMethod || null,
+      payoutAccount: agent.payoutAccount || null,
       policy: {
         dailySpendLimit: agent.policy.dailySpendLimit,
         maxPerTx: agent.policy.maxPerTx,

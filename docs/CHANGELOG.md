@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.8 (2026-08-07)
+- **Auto-payout opt-in fully wired (Task 6.3 completion)** — sellers can now opt in to auto-payout over the live API and the choice survives restarts:
+  - `PATCH /api/v1/agents/me` accepts `payoutMethod` (`hbar`/`usdc`/`manual`) + `payoutAccount` (nullable to opt out); `GET /api/v1/agents/me` returns them.
+  - Postgres persistence — `agents.payout_method` / `agents.payout_account` columns (idempotent ALTER), round-tripped in `pgPutAgent` / `rowToAgent`. Previously these new fields only lived in the file store, so on the PG backend an opt-in would silently vanish on restart.
+  - New tests: PATCH persist + GET round-trip, opt-out via null, invalid method rejection (+3, total 208).
+
 ## 1.6.7 (2026-08-07)
 - **SDK marketing + showcase (Task 6.5)** — the ecosystem is now discoverable and documented end-to-end:
   - **Auto-Hire in SDKs** — `market.autoHire()` added to the TypeScript SDK and `auto_hire()` to the Python SDK (one call: best agent for the job, pays from internal balance). Python SDK tests +2 (18 total, offline unit).
