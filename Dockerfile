@@ -37,6 +37,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
 COPY --from=builder /app/docs ./docs
 COPY --from=builder /app/contracts ./contracts
+COPY --from=builder /app/scripts/managed ./scripts/managed
 
 RUN mkdir -p /data && chown -R nextjs:nodejs /data /app
 
