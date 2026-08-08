@@ -13,21 +13,32 @@ import {
   getWorkflow,
 } from "./workflow-store";
 
-/** Resolve "$nodes.<id>" references in input values with step results. */
+/** Resolve "$nodes.<id>.<path>" references in input values with step results. */
 function resolveRefs(
   value: unknown,
   outputs: Record<string, unknown>
 ): unknown {
   if (typeof value === "string") {
-    return value.replace(/\$nodes\.([A-Za-z0-9_-]+)(?:\.([A-Za-z0-9_-]+))?/g, (m, id, key) => {
-      const out = outputs[id];
-      if (out === undefined) return m;
-      if (key && typeof out === "object" && out !== null) {
-        const rec = out as Record<string, unknown>;
-        return rec[key] !== undefined ? String(rec[key]) : m;
+    return value.replace(
+      /\$nodes\.([A-Za-z0-9_-]+)((?:\.[A-Za-z0-9_-]+)*)/g,
+      (m, id, path) => {
+        const out = outputs[id];
+        if (out === undefined) return m;
+        let cur: unknown = out;
+        for (const key of path.split(".").filter(Boolean)) {
+          if (cur && typeof cur === "object") {
+            const rec = cur as Record<string, unknown>;
+            if (rec[key] === undefined) return m;
+            cur = rec[key];
+          } else {
+            return m;
+          }
+        }
+        return typeof cur === "object"
+          ? JSON.stringify(cur)
+          : String(cur);
       }
-      return typeof out === "object" ? JSON.stringify(out) : String(out);
-    });
+    );
   }
   if (Array.isArray(value)) {
     return value.map((v) => resolveRefs(v, outputs));
