@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.13 (2026-08-08)
+- **Task 5.1 completion — Prometheus + Grafana monitoring stack (code side)**
+  - `monitoring/prometheus.yml` — scrape config for `/api/v1/metrics` (30s interval, 30d retention, `app=agentbazaar` labels).
+  - `monitoring/grafana/` — provisioned datasource (Prometheus) + **AgentBazaar Overview** dashboard (agents, offers, orders by status, escrows by status, webhook health, LLM fulfill, uptime, top sellers table; refresh 30s).
+  - `docker-compose.yml` — `prometheus` (127.0.0.1:9090) + `grafana` (127.0.0.1:3001, admin/admin default, sign-up disabled) services; existing app container untouched.
+  - `docs/MONITORING.md` — metrics reference + ops commands.
+  - Live verified: Prometheus target `openmarket` **UP** (scrape 78 agents), Grafana API 200, datasource + dashboard provisioned.
+
 ## 1.6.12 (2026-08-08)
 - **Financial audit trail (Task 5.2 completion)** — operator now sees exactly where every USDC sits:
   - **`GET /api/v1/admin/ledger`** (admin `ADMIN_API_KEY`) — per-agent balances (internalBalance, earnedTotal), full audit trail entries (credit/debit, orderId, reason, ts), payout summary (requested/approved/paid totals). Corporation-level visibility without exposing secrets.

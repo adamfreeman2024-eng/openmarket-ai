@@ -1,0 +1,16 @@
+# Prometheus scrape config — AgentBazaar (OpenMarket)
+# Scrapes the OpenMarket metrics endpoint (Prometheus text format).
+# NOTE: the metrics endpoint is public when METRICS_TOKEN is unset; if you set
+# METRICS_TOKEN in .env, add `authorization: Bearer <token>` here.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "openmarket"
+    metrics_path: /api/v1/metrics
+    static_configs:
+      - targets: ["openmarket:3000"]
+        labels:
+          app: agentbazaar
+          network: testnet
