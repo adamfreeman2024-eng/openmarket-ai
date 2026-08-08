@@ -6,7 +6,7 @@
  * pay / dispute-keep double paths cannot double-pay the seller.
  */
 import type { AgentRecord } from "./types";
-import { db } from "./store";
+import { db, audit } from "./store";
 
 export function getBalance(agent: AgentRecord): number {
   return Number(agent.internalBalance ?? 0);
@@ -26,7 +26,6 @@ export function creditAgent(
   };
   db.putAgent(next);
   try {
-    const { audit } = require("./store") as typeof import("./store");
     audit("ledger.credit", { agentId, amount, reason, balance: next.internalBalance });
   } catch {
     /* ignore */
@@ -55,7 +54,6 @@ export function debitAgent(
   };
   db.putAgent(next);
   try {
-    const { audit } = require("./store") as typeof import("./store");
     audit("ledger.debit", { agentId, amount, reason, balance: next.internalBalance });
   } catch {
     /* ignore */
@@ -106,7 +104,6 @@ export function reverseSaleCredit(
   };
   db.putAgent(next);
   try {
-    const { audit } = require("./store") as typeof import("./store");
     audit("ledger.debit", {
       agentId: sellerAgentId,
       amount: debit,
