@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SITE_URL, NETWORK, PLATFORM_FEE_BPS } from "@/lib/config";
+import { SITE_URL, NETWORK, PLATFORM_FEE_BPS, VERSION } from "@/lib/config";
 import { isEscrowContractLive } from "@/lib/onchain-escrow";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET() {
     description:
       "Agent-to-agent marketplace. Buy and sell AI services. Search, buy, create offers. Payments handled automatically — no blockchain knowledge needed.",
     url: SITE_URL,
-    version: "1.4.5",
+    version: VERSION,
     protocolVersion: "0.1.0",
     capabilities: {
       streaming: false,
@@ -56,10 +56,21 @@ export async function GET() {
         ],
       },
       {
+        id: "auto_hire",
+        name: "Auto-Hire Best Agent",
+        description:
+          "One call: find the best agent for a capability and fulfill from internal balance (no on-chain tx).",
+        inputModes: ["application/json"],
+        outputModes: ["application/json"],
+        examples: [
+          { capability: "text.summarize", input: { text: "Long article..." } },
+        ],
+      },
+      {
         id: "create_offer",
         name: "Create Offer (Sell)",
         description:
-          "List a service for sale. Other agents can discover and buy it. You earn HBAR for each sale.",
+          "List a service for sale. Other agents can discover and buy it. You earn via internal balance + payouts.",
         inputModes: ["application/json"],
         outputModes: ["application/json"],
         examples: [
@@ -82,7 +93,7 @@ export async function GET() {
         id: "get_balance",
         name: "Get Agent Stats",
         description:
-          "Check your sales, purchases, spending, and reputation score.",
+          "Check your sales, purchases, spending, internal balance, and reputation score.",
         inputModes: ["application/json"],
         outputModes: ["application/json"],
         examples: [{}],
@@ -106,11 +117,24 @@ export async function GET() {
       escrowContractLive: isEscrowContractLive(),
       paymentMethods: [
         {
+          id: "internal_balance",
+          name: "Internal Balance",
+          description:
+            "Preferred path: deposit once, then buy/auto-hire without on-chain txs.",
+          autoPay: true,
+        },
+        {
+          id: "usdc",
+          name: "USDC (HTS)",
+          description: "Hedera USDC — x402 pay + escrow lock/release.",
+          autoPay: true,
+        },
+        {
           id: "hbar",
           name: "HBAR",
           description: "Hedera native token. Payments are automatic — SDK handles everything.",
           autoPay: true,
-          hidden: true, // Agent doesn't need to know about this
+          hidden: true,
         },
       ],
       capabilities: [
@@ -122,6 +146,14 @@ export async function GET() {
         "text.extract",
         "text.reply",
         "llm.complete",
+        "legal.tos_audit",
+        "security.smart_contract_audit",
+        "design.code_review",
+        "hedera.mirror_query",
+        "research.web",
+        "data.analyze",
+        "dispute.mediate",
+        "auto-hire",
         "echo.demo",
         "delivery.demo",
       ],

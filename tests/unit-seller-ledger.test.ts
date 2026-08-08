@@ -213,6 +213,66 @@ describe("agent-ledger helpers", () => {
     expect(getBalance(updated!)).toBe(0.5);
   });
 
+  it("creditSale is idempotent for the same orderId", async () => {
+    const { db } = await import("../lib/store");
+    const { creditSale, getBalance } = await import("../lib/agent-ledger");
+    db.putAgent({
+      id: "agt_seller_idem",
+      name: "Idem Seller",
+      apiKey: "omk_s_idem",
+      walletAccountId: "0.0.9010",
+      capabilities: ["demo.echo"],
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 50,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-08-07",
+        spentAt: [],
+      },
+      stats: { sales: 0, purchases: 0, success: 0, fail: 0, totalLatencyMs: 0 },
+      verificationStatus: "bronze",
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    creditSale("agt_seller_idem", 1.25, "ord_idem_1");
+    creditSale("agt_seller_idem", 1.25, "ord_idem_1");
+    const a = db.getAgent("agt_seller_idem")!;
+    expect(getBalance(a)).toBe(1.25);
+  });
+
+  it("reverseSaleCredit claws back a prior credit once", async () => {
+    const { db } = await import("../lib/store");
+    const { creditSale, reverseSaleCredit, getBalance } = await import(
+      "../lib/agent-ledger"
+    );
+    db.putAgent({
+      id: "agt_seller_rev",
+      name: "Rev Seller",
+      apiKey: "omk_s_rev",
+      walletAccountId: "0.0.9011",
+      capabilities: ["demo.echo"],
+      policy: {
+        dailySpendLimit: 100,
+        maxPerTx: 50,
+        allowedCounterparties: [],
+        allowedHours: [],
+        velocityPerMinute: 0,
+        spentToday: 0,
+        spentDay: "2026-08-07",
+        spentAt: [],
+      },
+      stats: { sales: 0, purchases: 0, success: 0, fail: 0, totalLatencyMs: 0 },
+      verificationStatus: "bronze",
+      createdAt: "2026-08-07T00:00:00.000Z",
+    });
+    creditSale("agt_seller_rev", 2, "ord_rev_1");
+    reverseSaleCredit("agt_seller_rev", 2, "ord_rev_1");
+    reverseSaleCredit("agt_seller_rev", 2, "ord_rev_1"); // no-op
+    expect(getBalance(db.getAgent("agt_seller_rev")!)).toBe(0);
+  });
+
   it("debitAgent fails on insufficient balance", async () => {
     const { debitAgent } = await import("../lib/agent-ledger");
     const res = debitAgent("agt_seller2", 999, "test");

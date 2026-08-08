@@ -14,6 +14,7 @@
 import { db, newId } from "./store";
 import type { EscrowRecord } from "./store-types";
 import { log } from "./logger";
+import { creditSale, reverseSaleCredit } from "./agent-ledger";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -158,33 +159,89 @@ export function resolveDispute(
 
   if (resolution === "refund") {
     dispute.status = "resolved_refund";
-    // Refund escrow
+    // Refund escrow + reverse seller credit if release already paid them
     const escrow = db.getEscrow(dispute.escrowId);
     if (escrow) {
+      const wasReleased = escrow.status === "released";
       escrow.status = "refunded";
       escrow.reason = "dispute_refund";
       escrow.updatedAt = now;
       db.putEscrow(escrow);
+      const order = db.getOrder(dispute.orderId);
+      if (order) {
+        const sellerAmount = Number(
+          (
+            (typeof order.sellerAmount === "number"
+              ? order.sellerAmount
+              : (order.totalAmount || 0) - (order.platformFee || 0)) || 0
+          ).toFixed(8)
+        );
+        if (wasReleased && sellerAmount > 0) {
+          reverseSaleCredit(dispute.sellerAgentId, sellerAmount, order.id);
+        }
+        order.status = "failed";
+        order.error = "dispute_refund";
+        order.completedAt = now;
+        db.putOrder(order);
+      }
     }
   } else if (resolution === "keep") {
     dispute.status = "resolved_keep";
-    // Release escrow to seller
+    // Release escrow to seller + credit ledger (idempotent creditSale)
     const escrow = db.getEscrow(dispute.escrowId);
     if (escrow) {
       escrow.status = "released";
       escrow.reason = "dispute_resolved_keep";
       escrow.updatedAt = now;
       db.putEscrow(escrow);
+      const order = db.getOrder(dispute.orderId);
+      if (order) {
+        const sellerAmount = Number(
+          (
+            (typeof order.sellerAmount === "number"
+              ? order.sellerAmount
+              : (order.totalAmount || escrow.amount || 0) - (order.platformFee || 0)) || 0
+          ).toFixed(8)
+        );
+        order.status = "completed";
+        order.sellerAmount = sellerAmount;
+        order.completedAt = now;
+        order.result = {
+          ...(typeof order.result === "object" && order.result ? order.result : {}),
+          escrowId: escrow.id,
+          disputeResolution: "keep",
+        };
+        db.putOrder(order);
+        if (sellerAmount > 0) creditSale(dispute.sellerAgentId, sellerAmount, order.id);
+      }
     }
   } else if (resolution === "partial") {
     dispute.status = "resolved_refund";
     // Partial refund (simplified: full refund for now)
     const escrow = db.getEscrow(dispute.escrowId);
     if (escrow) {
+      const wasReleased = escrow.status === "released";
       escrow.status = "refunded";
       escrow.reason = "dispute_partial_refund";
       escrow.updatedAt = now;
       db.putEscrow(escrow);
+      const order = db.getOrder(dispute.orderId);
+      if (order) {
+        const sellerAmount = Number(
+          (
+            (typeof order.sellerAmount === "number"
+              ? order.sellerAmount
+              : (order.totalAmount || 0) - (order.platformFee || 0)) || 0
+          ).toFixed(8)
+        );
+        if (wasReleased && sellerAmount > 0) {
+          reverseSaleCredit(dispute.sellerAgentId, sellerAmount, order.id);
+        }
+        order.status = "failed";
+        order.error = "dispute_partial_refund";
+        order.completedAt = now;
+        db.putOrder(order);
+      }
     }
   }
 

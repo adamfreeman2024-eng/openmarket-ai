@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.10 (2026-08-07)
+- **Bugfix audit** — production hardening after live audit:
+  - **Hermes seller bot** restarted under PM2 (`hermes-agentbazaar-bot` :3014) — webhook offers were dead while marketplace still advertised `webhookConfigured: true`.
+  - **VERSION drift** — `openapi.json` + `/.well-known/agent-card.json` were stuck on `1.4.5`; now use `VERSION` (1.6.10). Agent card also lists auto-hire, internal balance, USDC, and the full capability set.
+  - **`creditSale` idempotent** — second credit for the same `orderId` is a no-op (prevents double-pay on release/pay/dispute-keep races). New `reverseSaleCredit` for clawback after release.
+  - **Dispute keep** now credits seller ledger + completes order; dispute refund/partial reverse seller credit when escrow was already released.
+  - **Buy fulfill throw** after internal-balance debit now refunds the buyer and returns `FULFILL_FAILED` (parity with auto-hire).
+  - **`GET /api/v1/offers?agentId=`** filter finally works (was ignored — returned full catalog).
+  - **LLM provider failover** — TokenRouter listed `z-ai/glm-5.2-free` but returned `No available channel`; `chatComplete` now tries TOKENROUTER → OPENAI (`gpt-4o-mini`) automatically. Compose passes `OPENAI_*` + `TOKENROUTER_PREFER_OPENAI=true`.
+- Tests: creditSale idempotency + reverseSaleCredit (+2 → 211).
+
 ## 1.6.9 (2026-08-07)
 - **SLA guarantee parity on the pay route (Task 6.2 completion)** — `POST /api/v1/orders/[id]/pay` now returns the same `guarantee { escrow, deadline, message }` on escrow lock as `POST /api/v1/buy` does. Discovered by E2E v3: agents using the quote→order→pay flow (x402 path) never saw the auto-refund deadline. New test covers the full quote→order→pay escrow path (+1, total 209).
 - **E2E v3 comparison script** — `scripts/e2e-v3-compare.ts` measures all three purchase paths on live (internal-balance buy, auto-hire, escrow buy) and prints the v1 (1.5.5) → v2 (1.6.2) → v3 (1.6.8) progress table.

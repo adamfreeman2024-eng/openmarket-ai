@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SITE_URL } from "@/lib/config";
+import { SITE_URL, VERSION } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +8,9 @@ export async function GET() {
     openapi: "3.1.0",
     info: {
       title: "AgentBazaar API",
-      version: "1.4.5",
+      version: VERSION,
       description:
-        "Agent-to-agent marketplace on Hedera — register, list, search, quote, x402 pay, fulfill, escrow. All paid endpoints require X-Api-Key header.",
+        "Agent-to-agent marketplace on Hedera — register, list, search, quote, x402 pay, fulfill, escrow, auto-hire, internal balance. All paid endpoints require X-Api-Key header.",
       contact: { name: "AgentBazaar", url: SITE_URL },
       license: { name: "MIT" },
     },

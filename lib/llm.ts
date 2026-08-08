@@ -1,6 +1,10 @@
 /**
- * OpenAI-compatible LLM via Tokenrouter (or any base URL).
+ * OpenAI-compatible LLM via Tokenrouter / OpenAI / any base URL.
  * Secrets only from env — never hardcode keys in source.
+ *
+ * Primary = TOKENROUTER_* (if key set). On channel/model/provider failure,
+ * falls back to OPENAI_* or LLM_* automatically so marketplace LLM offers
+ * stay live when a free-router model goes dark.
  */
 export type LlmChatMessage = {
   role: "system" | "user" | "assistant";
@@ -18,71 +22,113 @@ export function llmConfigured(): boolean {
   );
 }
 
+type Provider = { name: string; baseUrl: string; apiKey: string; model: string };
+
+function providers(): Provider[] {
+  const list: Provider[] = [];
+  if (process.env.TOKENROUTER_API_KEY) {
+    list.push({
+      name: "tokenrouter",
+      baseUrl: (
+        process.env.TOKENROUTER_BASE_URL || "https://api.tokenrouter.com/v1"
+      ).replace(/\/$/, ""),
+      apiKey: process.env.TOKENROUTER_API_KEY,
+      model:
+        process.env.TOKENROUTER_MODEL ||
+        process.env.LLM_MODEL ||
+        "z-ai/glm-5.2-free",
+    });
+  }
+  if (process.env.OPENAI_API_KEY) {
+    list.push({
+      name: "openai",
+      baseUrl: (
+        process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
+      ).replace(/\/$/, ""),
+      apiKey: process.env.OPENAI_API_KEY,
+      model: process.env.OPENAI_MODEL || process.env.LLM_MODEL || "gpt-4o-mini",
+    });
+  }
+  if (process.env.LLM_API_KEY) {
+    list.push({
+      name: "llm",
+      baseUrl: (
+        process.env.LLM_BASE_URL ||
+        process.env.OPENAI_BASE_URL ||
+        "https://api.openai.com/v1"
+      ).replace(/\/$/, ""),
+      apiKey: process.env.LLM_API_KEY,
+      model:
+        process.env.LLM_MODEL ||
+        process.env.OPENAI_MODEL ||
+        process.env.TOKENROUTER_MODEL ||
+        "gpt-4o-mini",
+    });
+  }
+  // Prefer OpenAI when TOKENROUTER_PREFER_OPENAI=true (ops override for dead free routers)
+  if (process.env.TOKENROUTER_PREFER_OPENAI === "true") {
+    list.sort((a, b) => (a.name === "openai" ? -1 : b.name === "openai" ? 1 : 0));
+  }
+  return list;
+}
+
 export function llmMeta() {
+  const p = providers()[0];
   return {
     configured: llmConfigured(),
     enabled: process.env.LLM_FULFILL_ENABLED !== "false",
-    baseUrl: (
-      process.env.TOKENROUTER_BASE_URL ||
-      process.env.OPENAI_BASE_URL ||
-      "https://api.tokenrouter.com/v1"
-    ).replace(/\/$/, ""),
-    model:
-      process.env.TOKENROUTER_MODEL ||
-      process.env.LLM_MODEL ||
-      "z-ai/glm-5.2-free",
+    baseUrl: p?.baseUrl || "https://api.tokenrouter.com/v1",
+    model: p?.model || "z-ai/glm-5.2-free",
+    provider: p?.name || null,
+    providers: providers().map((x) => x.name),
   };
 }
 
-function baseUrl() {
+function isRetryableProviderError(msg: string): boolean {
+  const m = msg.toLowerCase();
   return (
-    process.env.TOKENROUTER_BASE_URL ||
-    process.env.OPENAI_BASE_URL ||
-    process.env.LLM_BASE_URL ||
-    "https://api.tokenrouter.com/v1"
-  ).replace(/\/$/, "");
-}
-
-function apiKey() {
-  return (
-    process.env.TOKENROUTER_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.LLM_API_KEY ||
-    ""
-  );
-}
-
-function model() {
-  return (
-    process.env.TOKENROUTER_MODEL ||
-    process.env.LLM_MODEL ||
-    process.env.OPENAI_MODEL ||
-    "z-ai/glm-5.2-free"
+    m.includes("no available channel") ||
+    m.includes("model_not_found") ||
+    m.includes("does not exist") ||
+    m.includes("model not found") ||
+    m.includes("invalid token") ||
+    m.includes("incorrect api key") ||
+    m.includes("unauthorized") ||
+    m.includes("http_401") ||
+    m.includes("http_403") ||
+    m.includes("http_429") ||
+    m.includes("http_502") ||
+    m.includes("http_503") ||
+    m.includes("http_504") ||
+    m.includes("rate limit") ||
+    m.includes("overloaded") ||
+    m.includes("timeout") ||
+    m.includes("network")
   );
 }
 
 type ChatOk = { ok: true; text: string; model: string };
 type ChatErr = { ok: false; error: string };
 
-export async function chatComplete(opts: {
-  messages: LlmChatMessage[];
-  temperature?: number;
-  maxTokens?: number;
-  maxSeconds?: number;
-}): Promise<ChatOk | ChatErr> {
-  if (!llmConfigured()) {
-    return { ok: false, error: "LLM_NOT_CONFIGURED" };
+async function chatCompleteOnce(
+  p: Provider,
+  opts: {
+    messages: LlmChatMessage[];
+    temperature?: number;
+    maxTokens?: number;
+    maxSeconds?: number;
   }
-  const url = `${baseUrl()}/chat/completions`;
+): Promise<ChatOk | ChatErr> {
+  const url = `${p.baseUrl}/chat/completions`;
   try {
     const r = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: "Bearer " + apiKey(),
+        authorization: "Bearer " + p.apiKey,
       },
       body: JSON.stringify({
-        model: model(),
+        model: p.model,
         messages: opts.messages,
         temperature: opts.temperature ?? 0.3,
         // GLM reasoning models spend tokens on reasoning_content first
@@ -91,7 +137,7 @@ export async function chatComplete(opts: {
       signal: AbortSignal.timeout((opts.maxSeconds ?? 90) * 1000),
     });
     const j = (await r.json().catch(() => ({}))) as {
-      error?: { message?: string } | string;
+      error?: { message?: string; code?: string } | string;
       choices?: Array<{
         message?: {
           content?: string | null;
@@ -120,13 +166,44 @@ export async function chatComplete(opts: {
       text = lines[lines.length - 1] || rc.slice(0, 500);
     }
     if (!text) return { ok: false, error: "EMPTY_COMPLETION" };
-    return { ok: true, text, model: j.model || model() };
+    return { ok: true, text, model: j.model || p.model };
   } catch (e) {
     return {
       ok: false,
       error: e instanceof Error ? e.message : "LLM_FETCH_FAILED",
     };
   }
+}
+
+export async function chatComplete(opts: {
+  messages: LlmChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+  maxSeconds?: number;
+}): Promise<ChatOk | ChatErr> {
+  if (!llmConfigured()) {
+    return { ok: false, error: "LLM_NOT_CONFIGURED" };
+  }
+  const list = providers();
+  if (!list.length) return { ok: false, error: "LLM_NOT_CONFIGURED" };
+
+  let lastErr = "LLM_FAILED";
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    const r = await chatCompleteOnce(p, opts);
+    if (r.ok) return r;
+    lastErr = `[${p.name}] ${r.error}`;
+    const hasNext = i < list.length - 1;
+    if (!hasNext || !isRetryableProviderError(r.error)) {
+      // Non-retryable on last or hard failure — keep trying only on retryable
+      if (!hasNext) break;
+      if (!isRetryableProviderError(r.error)) {
+        // still try next provider for safety on free-router outages
+        continue;
+      }
+    }
+  }
+  return { ok: false, error: lastErr };
 }
 
 /** 30s exact-match cache for cacheable LLM capabilities (latency cut for repeat requests) */

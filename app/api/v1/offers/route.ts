@@ -22,13 +22,19 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/offers — all active offers (no secret fields) */
-export async function GET() {
+/** GET /api/v1/offers — active offers (optional ?agentId= filter; no secret fields) */
+export async function GET(req: NextRequest) {
   ensureSeedCatalog();
-  const cached = await cache.get<unknown>("offers:list");
-  if (cached) return json(cached);
-  const payload = { ok: true, offers: db.listOffers().map(publicOffer) };
-  await cache.set("offers:list", payload, 10);
+  const agentId = req.nextUrl.searchParams.get("agentId")?.trim() || undefined;
+  // Unfiltered list is cacheable; filtered views are cheap and agent-specific.
+  if (!agentId) {
+    const cached = await cache.get<unknown>("offers:list");
+    if (cached) return json(cached);
+  }
+  let offers = db.listOffers().filter((o) => o.active);
+  if (agentId) offers = offers.filter((o) => o.agentId === agentId);
+  const payload = { ok: true, offers: offers.map(publicOffer) };
+  if (!agentId) await cache.set("offers:list", payload, 10);
   return json(payload);
 }
 

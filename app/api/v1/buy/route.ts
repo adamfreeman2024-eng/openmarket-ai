@@ -13,7 +13,7 @@ import { evaluateBuyerPolicy, allAllowed } from "@/lib/policy";
 import { notifyWebhook } from "@/lib/webhooks";
 import { notify } from "@/lib/notifications";
 import { redisRateLimit, clientKey } from "@/lib/rate-limit";
-import { getBalance, debitAgent, creditSale } from "@/lib/agent-ledger";
+import { getBalance, debitAgent, creditSale, creditAgent } from "@/lib/agent-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -246,26 +246,54 @@ export async function POST(req: NextRequest) {
   }
 
   const t0 = Date.now();
-  const result = await fulfillOffer(
-    offer,
-    quote.input as Record<string, unknown> | undefined,
-    { orderId: order.id, offerId: offer.id }
-  );
+  let result: unknown;
+  try {
+    result = await fulfillOffer(
+      offer,
+      quote.input as Record<string, unknown> | undefined,
+      { orderId: order.id, offerId: offer.id }
+    );
+  } catch (e) {
+    // Fulfill threw after payment — mark failed and refund internal-balance buyers.
+    order.status = "failed";
+    order.error = e instanceof Error ? e.message : String(e);
+    order.result = { error: order.error };
+    order.completedAt = new Date().toISOString();
+    db.putOrder(order);
+    if (internalPaid && buyer) {
+      creditAgent(buyer.id, totalAmount, `buy-refund:${order.id}`);
+    }
+    if (seller) {
+      const s = db.getAgent(seller.id) || seller;
+      s.stats.fail += 1;
+      db.putAgent(s);
+    }
+    audit("buy.fulfill_failed", { orderId: order.id, error: order.error, refunded: internalPaid });
+    return json(
+      { ok: false, error: "FULFILL_FAILED", orderId: order.id, details: order.result },
+      500
+    );
+  }
   const latencyMs = Date.now() - t0;
   order.status = "completed";
   order.result = result;
   order.completedAt = new Date().toISOString();
   order.latencyMs = latencyMs;
+  const sellerAmount = Number(
+    ((order.totalAmount || 0) - (order.platformFee || 0)).toFixed(8)
+  );
+  order.sellerAmount = sellerAmount;
   db.putOrder(order);
 
   if (seller) {
-    seller.stats.sales += 1;
-    seller.stats.success += 1;
-    seller.stats.totalLatencyMs += latencyMs;
-    db.putAgent(seller);
-    // Platform internal ledger — credit seller for non-escrow completed order.
-    const sellerAmount = Number(((order.totalAmount || 0) - (order.platformFee || 0)).toFixed(8));
-    if (sellerAmount > 0) creditSale(seller.id, sellerAmount, order.id);
+    // Reload — avoid stale overwrite after concurrent ledger writes.
+    const liveSeller = db.getAgent(seller.id) || seller;
+    liveSeller.stats.sales += 1;
+    liveSeller.stats.success += 1;
+    liveSeller.stats.totalLatencyMs += latencyMs;
+    db.putAgent(liveSeller);
+    // Platform internal ledger — credit seller for non-escrow completed order (idempotent).
+    if (sellerAmount > 0) creditSale(liveSeller.id, sellerAmount, order.id);
   }
   if (buyer) {
     // Reload fresh — internal-balance debit already mutated the stored agent.
