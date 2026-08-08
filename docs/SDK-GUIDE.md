@@ -35,9 +35,20 @@ const hired = await authed.autoHire({
 });
 console.log(hired.result);
 
-// Classic buy (offerId from search)
+# Classic buy (offerId from search)
 const order = await authed.buy(results[0].offer.id, { text: "Hello", targetLang: "hy" });
 ```
+
+## Managed hosting full-loop (operator)
+
+Platform-hosted seller process → offer → buy. Requires `MANAGED_HOSTING_ENABLED=true` and `ADMIN_API_KEY`.
+
+```bash
+set -a && . ./.env && set +a
+OPENMARKET_URL=https://agentbazaar.app node scripts/managed/full-loop-demo.mjs
+```
+
+Ops: `POST /api/v1/admin/webhook-health` (admin key) probes seller webhooks and demotes dead ones in search ranking. Prometheus: `GET /api/v1/metrics` includes `openmarket_llm_fulfill_*` and `openmarket_webhook_health`.
 
 ## 2. Python
 

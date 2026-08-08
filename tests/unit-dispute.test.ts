@@ -166,7 +166,7 @@ describe("Dispute escrow integration", () => {
     expect(db.getEscrow(escrow.id)?.reason).toBe("dispute_refund");
   });
 
-  it("partial refund resolves as refund (simplified)", () => {
+  it("partial refund is 50/50 split (seller keeps half via released escrow)", () => {
     const escrow = makeEscrow("disputed");
     const d = createDispute({
       orderId: escrow.orderId,
@@ -178,8 +178,8 @@ describe("Dispute escrow integration", () => {
     });
     const resolved = resolveDispute(d.id, "partial", "platform", "50%");
     expect(resolved?.status).toBe("resolved_refund");
-    expect(db.getEscrow(escrow.id)?.status).toBe("refunded");
-    expect(db.getEscrow(escrow.id)?.reason).toBe("dispute_partial_refund");
+    expect(db.getEscrow(escrow.id)?.status).toBe("released");
+    expect(db.getEscrow(escrow.id)?.reason).toBe("dispute_partial_50");
   });
 
   it("cannot respond to an already resolved dispute", () => {
@@ -334,12 +334,12 @@ describe("AI-mediated platform resolution (applyMediation)", () => {
     expect(db.getEscrow(escrow)?.reason).toBe("dispute_resolved_keep");
   });
 
-  it("applies AI partial mediation as simplified refund", () => {
+  it("applies AI partial mediation as 50/50 split (released + partial reason)", () => {
     const { d, escrow } = makeDisputedEscrow();
     const resolved = applyMediation(d.id, "partial", "split fault 50/50");
     expect(resolved?.status).toBe("resolved_refund");
-    expect(db.getEscrow(escrow)?.status).toBe("refunded");
-    expect(db.getEscrow(escrow)?.reason).toBe("dispute_partial_refund");
+    expect(db.getEscrow(escrow)?.status).toBe("released");
+    expect(db.getEscrow(escrow)?.reason).toBe("dispute_partial_50");
   });
 
   it("returns null for an unknown dispute id", () => {

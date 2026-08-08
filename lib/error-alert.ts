@@ -58,7 +58,7 @@ export async function trackServerError(
 
     if (count >= THRESHOLD && alertWebhookUrl()) {
       await cache.set(cdKey, 1, Math.ceil(COOLDOWN_MS / 1000));
-      const res = await notifyWebhook(alertWebhookUrl(), "alert", {
+      const payload = {
         event: "alert.5xx",
         path,
         message:
@@ -66,14 +66,37 @@ export async function trackServerError(
           `5xx error threshold crossed (${count} in ${WINDOW_SECONDS}s window)`,
         count,
         threshold: THRESHOLD,
-      });
+      };
+      const res = await notifyWebhook(alertWebhookUrl(), "alert", payload);
       if (!res.ok) {
         log.warn(
           { path, error: res.error, status: res.status },
           "5xx alert webhook delivery failed"
         );
       }
+      // Phase 7.4 — also Telegram when configured
+      try {
+        const { sendTelegramAlert } = await import("./webhook-health");
+        await sendTelegramAlert(
+          `🚨 AgentBazaar 5xx alert\npath: ${path}\ncount: ${count}/${THRESHOLD}\n${payload.message}`
+        );
+      } catch {
+        /* ignore */
+      }
       return true;
+    }
+    // No ALERT_WEBHOOK_URL — still try Telegram if set
+    if (count >= THRESHOLD && !alertWebhookUrl()) {
+      await cache.set(cdKey, 1, Math.ceil(COOLDOWN_MS / 1000));
+      try {
+        const { sendTelegramAlert } = await import("./webhook-health");
+        const sent = await sendTelegramAlert(
+          `🚨 AgentBazaar 5xx alert\npath: ${path}\ncount: ${count}/${THRESHOLD}\n${message || "threshold crossed"}`
+        );
+        return sent;
+      } catch {
+        return false;
+      }
     }
     return false;
   } catch (e) {

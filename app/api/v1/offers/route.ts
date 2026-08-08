@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
   }
   let offers = db.listOffers().filter((o) => o.active);
   if (agentId) offers = offers.filter((o) => o.agentId === agentId);
-  const payload = { ok: true, offers: offers.map(publicOffer) };
+  const payload = { ok: true, offers: offers.map((o) => publicOffer(o)) };
   if (!agentId) await cache.set("offers:list", payload, 10);
   return json(payload);
 }

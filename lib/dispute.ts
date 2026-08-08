@@ -216,30 +216,49 @@ export function resolveDispute(
       }
     }
   } else if (resolution === "partial") {
+    // Phase 7.3 — real 50/50 split: seller keeps half of sellerAmount, rest refunded.
     dispute.status = "resolved_refund";
-    // Partial refund (simplified: full refund for now)
     const escrow = db.getEscrow(dispute.escrowId);
     if (escrow) {
       const wasReleased = escrow.status === "released";
-      escrow.status = "refunded";
-      escrow.reason = "dispute_partial_refund";
+      const order = db.getOrder(dispute.orderId);
+      const fullSeller = Number(
+        (
+          (order && typeof order.sellerAmount === "number"
+            ? order.sellerAmount
+            : (order?.totalAmount || escrow.amount || 0) -
+              (order?.platformFee || 0)) || 0
+        ).toFixed(8)
+      );
+      const keepAmount = Number((fullSeller * 0.5).toFixed(8));
+      const refundAmount = Number((fullSeller - keepAmount).toFixed(8));
+
+      escrow.status = "released";
+      escrow.reason = "dispute_partial_50";
       escrow.updatedAt = now;
       db.putEscrow(escrow);
-      const order = db.getOrder(dispute.orderId);
+
       if (order) {
-        const sellerAmount = Number(
-          (
-            (typeof order.sellerAmount === "number"
-              ? order.sellerAmount
-              : (order.totalAmount || 0) - (order.platformFee || 0)) || 0
-          ).toFixed(8)
-        );
-        if (wasReleased && sellerAmount > 0) {
-          reverseSaleCredit(dispute.sellerAgentId, sellerAmount, order.id);
+        // If previously fully credited, claw back full then credit half.
+        if (wasReleased && fullSeller > 0) {
+          reverseSaleCredit(dispute.sellerAgentId, fullSeller, order.id);
         }
-        order.status = "failed";
-        order.error = "dispute_partial_refund";
+        // Use a distinct claim key for the partial credit leg
+        if (keepAmount > 0) {
+          creditSale(dispute.sellerAgentId, keepAmount, `${order.id}:partial`);
+        }
+        order.status = "completed";
+        order.sellerAmount = keepAmount;
         order.completedAt = now;
+        order.result = {
+          ...(typeof order.result === "object" && order.result ? order.result : {}),
+          escrowId: escrow.id,
+          disputeResolution: "partial",
+          sellerKeep: keepAmount,
+          buyerRefundShare: refundAmount,
+          note: "50/50 split — seller keeps half of net seller amount",
+        };
+        order.error = undefined;
         db.putOrder(order);
       }
     }

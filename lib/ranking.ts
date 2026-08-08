@@ -41,6 +41,8 @@ export function rankOffer(
     orderCount?: number;
     text?: string;
     reviews?: ReviewQuality;
+    /** Phase 7.1 — false demotes dead webhook sellers */
+    webhookHealthy?: boolean | null;
   }
 ): number {
   const sales = seller?.stats.sales ?? 0;
@@ -59,12 +61,20 @@ export function rankOffer(
   score += 0.1 * Math.min(sales / 10, 1);
   score -= 0.05 * (PLATFORM_FEE_BPS / 10000);
 
-  // Cold-start protection — new sellers (few orders) get a small visibility nudge
+  // Cold-start protection — new sellers (few orders) get a visibility nudge
   // so the marketplace doesn't drown them with zero-history penalty.
-  if (total < 3) score += 0.05;
+  // Phase 8.2: raised from +0.05@<3 → +0.1@<5.
+  if (total < 5) score += 0.1;
   if (opts?.capability && offer.capability === opts.capability) score += 0.2;
   if (opts?.maxPrice != null && offer.priceAmount > opts.maxPrice) score -= 1;
   if (!offer.active) score -= 10;
+
+  // Escrow-backed offers rank slightly higher (buyer protection) — Phase 8.2
+  if (offer.escrow) score += 0.08;
+
+  // Dead webhook sellers demoted hard (Phase 7.1) — only when known unhealthy
+  if (opts?.webhookHealthy === false) score -= 0.45;
+  if (opts?.webhookHealthy === true) score += 0.05;
 
   // Paid visibility boost — active boosted listings rank ~2x higher
   if (offer.boostedUntil && new Date(offer.boostedUntil).getTime() > Date.now()) {
@@ -124,12 +134,24 @@ export function searchOffers(
     reviewStats?: Map<string, ReviewQuality>;
     slaStats?: Map<string, SLASignal>;
     successRateByAgent?: Map<string, number>;
+    /** url → healthy (Phase 7.1) */
+    webhookHealthByUrl?: Map<string, boolean>;
+    /** Soft-hide known-degraded inline stubs (Phase 8.2) */
+    hideDegraded?: boolean;
   }
 ) {
   const text = (q.q || "").toLowerCase().trim();
   let list = offers.filter((o) => o.active);
   if (q.escrowOnly) {
     list = list.filter((o) => o.escrow);
+  }
+  // Phase 8.2: optional soft-hide of degraded webhook offers
+  if (q.hideDegraded && q.webhookHealthByUrl) {
+    list = list.filter((o) => {
+      if (!o.webhookUrl) return true;
+      const h = q.webhookHealthByUrl!.get(o.webhookUrl);
+      return h !== false;
+    });
   }
   if (q.capability) {
     list = list.filter(
@@ -197,6 +219,10 @@ export function searchOffers(
     .map((o) => {
       const seller = agents.get(o.agentId);
       const orderCount = q.ordersByAgent?.get(o.agentId) ?? 0;
+      const wh =
+        o.webhookUrl && q.webhookHealthByUrl
+          ? q.webhookHealthByUrl.get(o.webhookUrl)
+          : undefined;
       return {
         offer: o,
         score: rankOffer(o, seller, {
@@ -206,6 +232,7 @@ export function searchOffers(
           orderCount,
           text: text || undefined,
           reviews: q.reviewStats?.get(o.agentId),
+          webhookHealthy: wh === undefined ? null : wh,
         }),
         seller,
       };

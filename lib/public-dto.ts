@@ -3,7 +3,10 @@
  */
 import type { OfferRecord, AgentRecord } from "./types";
 
-export function publicOffer(o: OfferRecord) {
+export function publicOffer(
+  o: OfferRecord,
+  opts?: { webhookHealthy?: boolean | null }
+) {
   return {
     id: o.id,
     agentId: o.agentId,
@@ -15,6 +18,9 @@ export function publicOffer(o: OfferRecord) {
     fulfillmentType: o.fulfillmentType,
     /** true if seller configured a webhook (URL never public) */
     webhookConfigured: Boolean(o.webhookUrl),
+    /** Phase 7.1 — null=unknown, true/false from last health probe */
+    webhookHealthy:
+      opts?.webhookHealthy === undefined ? null : opts.webhookHealthy,
     maxSeconds: o.maxSeconds,
     escrow: o.escrow,
     tags: o.tags,

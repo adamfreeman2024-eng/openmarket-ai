@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.11 (2026-08-08)
+- **Phase 7 reliability + Phase 8 growth (agent-side plan complete)**
+  - **7.1 Webhook seller health** — `lib/webhook-health.ts` probes `/health` (or webhook URL); cache TTL; ranking demotion when unhealthy; `webhookHealthy` on public offers; `GET/POST /api/v1/admin/webhook-health` (admin) with optional Telegram/ALERT webhook.
+  - **7.2 LLM metrics** — `lib/llm-metrics.ts` counters by provider; `chatComplete` records latency/ok/err; Prometheus lines on `/api/v1/metrics`.
+  - **7.3 Partial dispute 50/50** — seller keeps half of net sellerAmount (creditSale `orderId:partial`), order completed with split metadata (no longer full-refund stub).
+  - **7.4 Alerts** — 5xx threshold also fires Telegram when `TELEGRAM_BOT_TOKEN`+`CHAT_ID` set; compose passes `ALERT_WEBHOOK_URL`.
+  - **8.1 Auto-Hire homepage funnel** — deposit → balance → auto-hire copy-paste; version badge uses live `VERSION`.
+  - **8.2 Catalog quality** — cold-start nudge +0.1@<5 sales; escrow +0.08; `hideDegraded=1` search filter for known-unhealthy webhooks.
+  - **8.4 Managed full-loop demo** — `scripts/managed/full-loop-demo.mjs`.
+- Tests: `tests/unit-phase7-reliability.test.ts`.
+
 ## 1.6.10 (2026-08-07)
 - **Bugfix audit** — production hardening after live audit:
   - **Hermes seller bot** restarted under PM2 (`hermes-agentbazaar-bot` :3014) — webhook offers were dead while marketplace still advertised `webhookConfigured: true`.

@@ -6,6 +6,7 @@ import { reputationForApi } from "@/lib/reputation";
 import { getReviewStats, computeSLA } from "@/lib/reputation-v2";
 import { publicOffer } from "@/lib/public-dto";
 import { cache, searchCacheKey } from "@/lib/cache";
+import { getCachedWebhookHealth } from "@/lib/webhook-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,13 +15,11 @@ export function OPTIONS() {
   return options();
 }
 
-/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit=&tags=&category=&sortBy=&minRating=&minReviewRating=&minOnTimeRate=&escrowOnly= */
+/** GET /api/v1/offers/search?q=&capability=&maxPrice=&asset=&limit=&tags=&category=&sortBy=&minRating=&minReviewRating=&minOnTimeRate=&escrowOnly=&hideDegraded= */
 export async function GET(req: NextRequest) {
   ensureSeedCatalog();
   const sp = req.nextUrl.searchParams;
 
-  // Redis cache (in-memory fallback) — ranked discovery results are cached briefly
-  // so repeated agent queries don't re-rank the whole catalog every time.
   const cacheKey = searchCacheKey("offers:search", sp);
   const cached = await cache.get<unknown>(cacheKey);
   if (cached) return json(cached);
@@ -29,15 +28,16 @@ export async function GET(req: NextRequest) {
   const escrows = db.listEscrows();
   const orders = db.listOrders();
 
-  // Count orders per agent for reputation
   const ordersByAgent = new Map<string, number>();
   for (const o of orders) {
     if (o.sellerAgentId) {
-      ordersByAgent.set(o.sellerAgentId, (ordersByAgent.get(o.sellerAgentId) ?? 0) + 1);
+      ordersByAgent.set(
+        o.sellerAgentId,
+        (ordersByAgent.get(o.sellerAgentId) ?? 0) + 1
+      );
     }
   }
 
-  // SLA stats per seller agent — on-time delivery rate from completed orders.
   const slaStats = new Map<string, SLASignal>();
   const successRateByAgent = new Map<string, number>();
   for (const a of db.listAgents()) {
@@ -57,18 +57,33 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Parse tags (comma-separated)
   const tagsParam = sp.get("tags");
-  const tags = tagsParam ? tagsParam.split(",").map(t => t.trim()).filter(Boolean) : undefined;
+  const tags = tagsParam
+    ? tagsParam
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+    : undefined;
 
-  // Review quality per seller agent (Reputation V2) — verified reviews only.
   const reviewStats = new Map<string, { average: number; total: number }>();
   for (const a of db.listAgents()) {
     const s = getReviewStats(a.id);
     if (s.total > 0) reviewStats.set(a.id, { average: s.average, total: s.total });
   }
 
-  const results = searchOffers(db.listOffers(), agents, {
+  // Phase 7.1 — cached webhook health for ranking (no live probe on hot path)
+  const webhookHealthByUrl = new Map<string, boolean>();
+  const offers = db.listOffers();
+  for (const o of offers) {
+    if (!o.webhookUrl || webhookHealthByUrl.has(o.webhookUrl)) continue;
+    const h = await getCachedWebhookHealth(o.webhookUrl);
+    if (h) webhookHealthByUrl.set(o.webhookUrl, h.ok);
+  }
+
+  const hideDegraded =
+    sp.get("hideDegraded") === "1" || sp.get("hideDegraded") === "true";
+
+  const results = searchOffers(offers, agents, {
     q: sp.get("q") || undefined,
     capability: sp.get("capability") || undefined,
     maxPrice: sp.get("maxPrice") ? Number(sp.get("maxPrice")) : undefined,
@@ -78,14 +93,28 @@ export async function GET(req: NextRequest) {
     ordersByAgent,
     tags,
     category: sp.get("category") || undefined,
-    sortBy: (sp.get("sortBy") as "relevance" | "price_low" | "price_high" | "reputation" | "speed" | "rating" | "quality") || undefined,
+    sortBy:
+      (sp.get("sortBy") as
+        | "relevance"
+        | "price_low"
+        | "price_high"
+        | "reputation"
+        | "speed"
+        | "rating"
+        | "quality") || undefined,
     minRating: sp.get("minRating") ? Number(sp.get("minRating")) : undefined,
-    minReviewRating: sp.get("minReviewRating") ? Number(sp.get("minReviewRating")) : undefined,
-    minOnTimeRate: sp.get("minOnTimeRate") ? Number(sp.get("minOnTimeRate")) : undefined,
+    minReviewRating: sp.get("minReviewRating")
+      ? Number(sp.get("minReviewRating"))
+      : undefined,
+    minOnTimeRate: sp.get("minOnTimeRate")
+      ? Number(sp.get("minOnTimeRate"))
+      : undefined,
     escrowOnly: sp.get("escrowOnly") === "1" || sp.get("escrowOnly") === "true",
     reviewStats,
     slaStats,
     successRateByAgent,
+    webhookHealthByUrl,
+    hideDegraded,
   });
 
   const payload = {
@@ -96,9 +125,14 @@ export async function GET(req: NextRequest) {
       const rep = r.seller
         ? reputationForApi(r.seller, escrows, orderCount)
         : null;
+      const wh = r.offer.webhookUrl
+        ? webhookHealthByUrl.get(r.offer.webhookUrl)
+        : undefined;
       return {
         score: Number(r.score.toFixed(6)),
-        offer: publicOffer(r.offer),
+        offer: publicOffer(r.offer, {
+          webhookHealthy: wh === undefined ? null : wh,
+        }),
         seller: r.seller
           ? {
               id: r.seller.id,

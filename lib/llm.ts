@@ -187,21 +187,28 @@ export async function chatComplete(opts: {
   const list = providers();
   if (!list.length) return { ok: false, error: "LLM_NOT_CONFIGURED" };
 
+  const { recordLlmFulfill } = await import("./llm-metrics");
   let lastErr = "LLM_FAILED";
   for (let i = 0; i < list.length; i++) {
     const p = list[i];
+    const t0 = Date.now();
     const r = await chatCompleteOnce(p, opts);
-    if (r.ok) return r;
+    const latencyMs = Date.now() - t0;
+    if (r.ok) {
+      recordLlmFulfill({ provider: p.name, ok: true, latencyMs });
+      return r;
+    }
+    recordLlmFulfill({
+      provider: p.name,
+      ok: false,
+      latencyMs,
+      error: r.error,
+    });
     lastErr = `[${p.name}] ${r.error}`;
     const hasNext = i < list.length - 1;
-    if (!hasNext || !isRetryableProviderError(r.error)) {
-      // Non-retryable on last or hard failure — keep trying only on retryable
-      if (!hasNext) break;
-      if (!isRetryableProviderError(r.error)) {
-        // still try next provider for safety on free-router outages
-        continue;
-      }
-    }
+    if (!hasNext) break;
+    // Always try next provider on free-router / channel outages
+    if (!isRetryableProviderError(r.error) && !hasNext) break;
   }
   return { ok: false, error: lastErr };
 }

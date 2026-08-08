@@ -1,6 +1,6 @@
 /**
  * Prometheus metrics endpoint — /api/v1/metrics
- * Optional auth: set METRICS_TOKEN and send Authorization: Bearer <token>
+ * Optional auth: set METRICS_TOKEN and send Authorization: Bearer …
  * or X-Metrics-Token header.
  */
 import { NextRequest } from "next/server";
@@ -10,9 +10,12 @@ import {
   ALLOW_DEV_FAKE_SETTLEMENT,
   PLATFORM_FEE_BPS,
   NETWORK,
+  VERSION,
 } from "@/lib/config";
 import { isEscrowContractLive } from "@/lib/onchain-escrow";
 import { llmMeta } from "@/lib/llm";
+import { llmMetricsPrometheus } from "@/lib/llm-metrics";
+import { getCachedWebhookHealth } from "@/lib/webhook-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +32,7 @@ function escLabel(s: string): string {
 
 function authorized(req: NextRequest): boolean {
   const token = process.env.METRICS_TOKEN?.trim();
-  if (!token) return true; // open if not configured (dev)
+  if (!token) return true;
   const h =
     req.headers.get("x-metrics-token") ||
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -115,6 +118,29 @@ export async function GET(req: NextRequest) {
   lines.push(
     `openmarket_config_info{flag="llm_enabled",network="${escLabel(NETWORK)}"} ${llm.enabled ? 1 : 0}`
   );
+  lines.push(
+    `openmarket_config_info{flag="version",version="${escLabel(VERSION)}"} 1`
+  );
+
+  lines.push(...llmMetricsPrometheus());
+
+  let whOk = 0;
+  let whBad = 0;
+  let whUnknown = 0;
+  const seen = new Set<string>();
+  for (const o of offers) {
+    if (!o.webhookUrl || seen.has(o.webhookUrl)) continue;
+    seen.add(o.webhookUrl);
+    const h = await getCachedWebhookHealth(o.webhookUrl);
+    if (!h) whUnknown += 1;
+    else if (h.ok) whOk += 1;
+    else whBad += 1;
+  }
+  lines.push("# HELP openmarket_webhook_health Seller webhook health counts");
+  lines.push("# TYPE openmarket_webhook_health gauge");
+  lines.push(`openmarket_webhook_health{state="healthy"} ${whOk}`);
+  lines.push(`openmarket_webhook_health{state="unhealthy"} ${whBad}`);
+  lines.push(`openmarket_webhook_health{state="unknown"} ${whUnknown}`);
 
   lines.push("# HELP openmarket_agent_sales_total Total sales by agent");
   lines.push("# TYPE openmarket_agent_sales_total gauge");
