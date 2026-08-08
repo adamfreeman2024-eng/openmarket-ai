@@ -32,6 +32,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgres://openmarket:openmarket@postgres:5432/openmarket}
       - OPERATOR_API_KEY=${OPERATOR_API_KEY:-}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
       - MANAGED_HOSTING_ENABLED=${MANAGED_HOSTING_ENABLED:-true}
       - MANAGED_SCRIPT_DIR=${MANAGED_SCRIPT_DIR:-/app/scripts/managed}
       - MANAGED_AGENT_MAX_RUNTIME_MS=${MANAGED_AGENT_MAX_RUNTIME_MS:-3600000}
@@ -103,8 +104,11 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.retention.time=30d
+    environment:
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/metrics_token:/etc/prometheus/metrics_token:ro
       - prom_data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"

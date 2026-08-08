@@ -32,8 +32,10 @@ Refresh 30s, timezone UTC.
 
 ## Auth
 
-- Metrics endpoint: optionally protected with `METRICS_TOKEN` (env). When set, Prometheus
-  needs an `authorization` header — see `monitoring/prometheus.yml` comment.
+- Metrics endpoint: **protected with `METRICS_TOKEN`** (set in `.env`, 2026-08-08).
+  Without a valid token (`Authorization: Bearer <token>` or `X-Metrics-Token`) →
+  `401`. Prometheus authenticates via the mounted token file
+  `monitoring/metrics_token` (gitignored; keep in sync with `.env`).
 - Grafana: `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD` env (default admin/admin).
   Change before exposing beyond localhost. Sign-up disabled, anonymous auth disabled.
 

@@ -1,7 +1,9 @@
 # Prometheus scrape config — AgentBazaar (OpenMarket)
 # Scrapes the OpenMarket metrics endpoint (Prometheus text format).
-# NOTE: the metrics endpoint is public when METRICS_TOKEN is unset; if you set
-# METRICS_TOKEN in .env, add `authorization: Bearer <token>` here.
+# Auth: token file monitoring/metrics_token (gitignored) is mounted into the
+# container at /etc/prometheus/metrics_token and read as Bearer credentials.
+# If the file is empty/missing, Prometheus sends no Authorization header and the
+# endpoint stays public (METRICS_TOKEN unset in app).
 global:
   scrape_interval: 30s
   evaluation_interval: 30s
@@ -9,6 +11,9 @@ global:
 scrape_configs:
   - job_name: "openmarket"
     metrics_path: /api/v1/metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/metrics_token
     static_configs:
       - targets: ["openmarket:3000"]
         labels:
