@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.12 (2026-08-08)
+- **Financial audit trail (Task 5.2 completion)** — operator now sees exactly where every USDC sits:
+  - **`GET /api/v1/admin/ledger`** (admin `ADMIN_API_KEY`) — per-agent balances (internalBalance, earnedTotal), full audit trail entries (credit/debit, orderId, reason, ts), payout summary (requested/approved/paid totals). Corporation-level visibility without exposing secrets.
+  - **Agent-ledger audit fix** — `lib/agent-ledger.ts` audit now uses a static import (vitest ESM `require` fallback bug — audit calls previously threw in test ESM context).
+- Tests: `tests/unit-admin-ledger.test.ts` (+150 → total **220**). Live: v1.6.12 on agentbazaar.app (health 200, ready 200, agent-card 1.6.12, homepage 200).
+
 ## 1.6.11 (2026-08-08)
 - **Phase 7 reliability + Phase 8 growth (agent-side plan complete)**
   - **7.1 Webhook seller health** — `lib/webhook-health.ts` probes `/health` (or webhook URL); cache TTL; ranking demotion when unhealthy; `webhookHealthy` on public offers; `GET/POST /api/v1/admin/webhook-health` (admin) with optional Telegram/ALERT webhook.
